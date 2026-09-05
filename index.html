@@ -213,73 +213,44 @@ const GLABEL={beer:"beer drinkers",wine:"wine drinkers",spirits:"on spirits",sof
   coffee:"coffee drinkers",tea:"tea drinkers",bfEggs:"savoury breakfasts",bfBread:"bread breakfasts",
   bfMuesli:"muesli breakfasts",bfLight:"light breakfasts",plant:"vegan or lactose-free"};
 
-/* =================== RECIPES (original suggestions, not sourced from any site) =================== */
+/* ============ SEED RECIPES: copied into your editable list on first run only ============ */
 const VLABEL={veg:"not vegetarian",vegan:"not vegan",nopork:"contains pork",gf:"contains gluten",lf:"contains dairy"};
-const RECIPES=[
-  {id:"chorizoPasta",name:"One-pot tomato & chorizo pasta",type:"dinner",diets:["lf"],
-   blurb:"A simple stovetop pasta with smoky chorizo and a quick tomato sauce.",
-   ingr:[{n:"Pasta (penne or fusilli)",q:0.10,u:"kg"},{n:"Chorizo or spicy sausage",q:0.06,u:"kg"},
-         {n:"Chopped tomatoes (tins)",q:0.5,u:"tin"},{n:"Onion",q:0.15,u:"piece"},{n:"Garlic clove",q:0.5,u:"clove"}]},
-  {id:"orzoFeta",name:"Greek orzo with feta and vegetables",type:"lunch",diets:["veg","nopork"],
-   blurb:"Cold orzo salad with feta, cucumber and olives — good for a hot lunch stop.",
-   ingr:[{n:"Orzo pasta",q:0.08,u:"kg"},{n:"Feta cheese",q:0.05,u:"kg"},{n:"Cucumber",q:0.3,u:"piece"},
-         {n:"Cherry tomatoes",q:0.15,u:"kg"},{n:"Olives",q:0.03,u:"kg"}]},
-  {id:"chickpeaCurry",name:"Chickpea & spinach curry with rice",type:"dinner",diets:["veg","vegan","gf","lf","nopork"],
-   blurb:"A mild coconut curry that stretches well and keeps for a second helping.",
-   ingr:[{n:"Chickpeas (tins)",q:0.6,u:"tin"},{n:"Fresh spinach or chard",q:0.10,u:"kg"},
-         {n:"Coconut milk (tins)",q:0.3,u:"tin"},{n:"Curry paste",q:0.02,u:"tube"},{n:"Rice",q:0.08,u:"kg"}]},
-  {id:"grilledFish",name:"Grilled fish with couscous salad",type:"dinner",diets:["lf","nopork"],
-   blurb:"Pan-fried or grilled fish with a lemony couscous salad on the side.",
-   ingr:[{n:"Fresh white fish fillets",q:0.20,u:"kg"},{n:"Couscous",q:0.08,u:"kg"},
-         {n:"Cherry tomatoes",q:0.10,u:"kg"},{n:"Lemon",q:0.2,u:"piece"},{n:"Fresh herbs",q:0.02,u:"bunch"}]},
-  {id:"aubergineNorma",name:"Aubergine pasta alla Norma",type:"dinner",diets:["veg","vegan","lf","nopork"],
-   blurb:"Silky aubergine and tomato sauce over pasta, no cheese needed.",
-   ingr:[{n:"Pasta (penne or fusilli)",q:0.09,u:"kg"},{n:"Aubergine",q:0.20,u:"kg"},
-         {n:"Chopped tomatoes (tins)",q:0.4,u:"tin"},{n:"Garlic clove",q:0.4,u:"clove"}]},
-  {id:"lentilDal",name:"Coconut lentil dal with rice",type:"dinner",diets:["veg","vegan","gf","lf","nopork"],
-   blurb:"Red lentils simmered in coconut milk with warming spices, served over rice.",
-   ingr:[{n:"Red lentils",q:0.08,u:"kg"},{n:"Coconut milk (tins)",q:0.3,u:"tin"},
-         {n:"Curry paste",q:0.02,u:"tube"},{n:"Rice",q:0.08,u:"kg"},{n:"Onion",q:0.15,u:"piece"}]},
-  {id:"halloumiSkewers",name:"Grilled halloumi & vegetable skewers",type:"dinner",diets:["veg","gf","nopork"],
-   blurb:"Charred halloumi and summer vegetables straight off a griddle pan or barbecue.",
-   ingr:[{n:"Halloumi",q:0.10,u:"kg"},{n:"Peppers",q:0.5,u:"piece"},{n:"Courgette",q:0.15,u:"kg"},
-         {n:"Cherry tomatoes",q:0.10,u:"kg"}]},
-  {id:"tunaBean",name:"Tuna & white bean salad",type:"lunch",diets:["gf","lf","nopork"],
-   blurb:"A no-cook salad of tuna, white beans and tomato — ready in ten minutes.",
-   ingr:[{n:"Tinned tuna",q:0.5,u:"tin"},{n:"Beans (tins)",q:0.4,u:"tin"},
-         {n:"Cherry tomatoes",q:0.10,u:"kg"},{n:"Red onion",q:0.1,u:"piece"}]},
-  {id:"greekSalad",name:"Greek salad with feta",type:"lunch",diets:["veg","gf","nopork"],
-   blurb:"The classic: tomato, cucumber, feta and olives with a good olive oil.",
-   ingr:[{n:"Tomatoes",q:0.25,u:"kg"},{n:"Cucumber",q:0.3,u:"piece"},{n:"Feta cheese",q:0.06,u:"kg"},
-         {n:"Olives",q:0.03,u:"kg"},{n:"Red onion",q:0.1,u:"piece"}]},
-  {id:"hummusPlate",name:"Hummus, veg & flatbread plate",type:"lunch",diets:["veg","vegan","lf","nopork"],
-   blurb:"A shared plate of hummus, crunchy vegetables and flatbread — good for a lazy lunch.",
-   ingr:[{n:"Hummus",q:0.15,u:"tub"},{n:"Flatbread or wraps",q:0.7,u:"piece"},
-         {n:"Peppers",q:0.3,u:"piece"},{n:"Cucumber",q:0.2,u:"piece"}]},
-  {id:"caprese",name:"Caprese salad",type:"lunch",diets:["veg","gf","nopork"],
-   blurb:"Sliced tomato, mozzarella and basil, best with the ripest tomatoes you can find.",
-   ingr:[{n:"Mozzarella",q:0.10,u:"pack"},{n:"Tomatoes",q:0.25,u:"kg"},{n:"Fresh basil",q:0.02,u:"bunch"}]},
-  {id:"chickenWraps",name:"Chicken & vegetable wraps",type:"lunch",diets:["lf","nopork"],
-   blurb:"Grilled chicken and crunchy vegetables rolled into a wrap.",
-   ingr:[{n:"Cooked chicken",q:0.12,u:"kg"},{n:"Wraps",q:0.8,u:"piece"},
-         {n:"Lettuce",q:0.15,u:"head"},{n:"Peppers",q:0.3,u:"piece"}]},
-  {id:"aglioOlio",name:"Spaghetti aglio e olio",type:"dinner",diets:["veg","vegan","lf","nopork"],
-   blurb:"Garlic, olive oil and chilli tossed through spaghetti — pantry-only and quick.",
-   ingr:[{n:"Spaghetti",q:0.10,u:"kg"},{n:"Garlic clove",q:1,u:"clove"},
-         {n:"Dried chilli",q:0.2,u:"pinch"},{n:"Fresh parsley",q:0.02,u:"bunch"}]},
-  {id:"prawnRice",name:"One-pot rice with prawns & peppers",type:"dinner",diets:["gf","lf","nopork"],
-   blurb:"A one-pot rice dish with prawns, peppers and tomato, cooked in a single pan.",
-   ingr:[{n:"Rice",q:0.09,u:"kg"},{n:"Prawns",q:0.15,u:"kg"},{n:"Peppers",q:0.4,u:"piece"},
-         {n:"Chopped tomatoes (tins)",q:0.3,u:"tin"}]},
-  {id:"ratatouille",name:"Ratatouille with crusty bread",type:"dinner",diets:["veg","vegan","lf","nopork"],
-   blurb:"Slow-cooked Provençal vegetables, served with bread to mop up the sauce.",
-   ingr:[{n:"Aubergine",q:0.15,u:"kg"},{n:"Courgette",q:0.15,u:"kg"},{n:"Peppers",q:0.4,u:"piece"},
-         {n:"Chopped tomatoes (tins)",q:0.4,u:"tin"},{n:"Crusty bread",q:0.3,u:"piece"}]},
-  {id:"sausageStew",name:"Sausage & white bean stew",type:"dinner",diets:["lf"],
-   blurb:"A hearty stew of sausage and white beans in a tomato base.",
-   ingr:[{n:"Sausages",q:0.15,u:"kg"},{n:"Beans (tins)",q:0.5,u:"tin"},
-         {n:"Chopped tomatoes (tins)",q:0.4,u:"tin"},{n:"Onion",q:0.15,u:"piece"}]}
+const SEED_RECIPES=[
+  {id:"r1",serves:6,name:"Zucchini & onion risotto",type:"dinner",diets:["veg","gf","nopork"],
+   blurb:"Creamy risotto with courgette and onion — one pot, one burner.",
+   ingr:[{n:"Risotto rice",q:0.16667,u:"kg"},{n:"Courgette",q:0.33333,u:"piece"},{n:"Onion",q:0.33333,u:"piece"}]},
+  {id:"r2",serves:6,name:"Falafel & hummus wraps",type:"lunch",diets:["veg","vegan","lf","nopork"],
+   blurb:"No cooking needed — falafel, hummus, sweetcorn and tomato rolled up.",
+   ingr:[{n:"Wraps",q:2,u:"piece"},{n:"Falafel balls",q:2,u:"piece"},{n:"Hummus",q:0.16667,u:"tub"},
+         {n:"Sweetcorn (tins)",q:0.16667,u:"tin"},{n:"Tomatoes",q:0.33333,u:"piece"}]},
+  {id:"r3",serves:6,name:"Couscous with feta & sun-dried tomatoes",type:"lunch",diets:["veg","nopork"],
+   blurb:"Cold couscous with chickpeas, sweetcorn, courgette and feta.",
+   ingr:[{n:"Couscous",q:0.08333,u:"kg"},{n:"Sun-dried tomatoes",q:0.16667,u:"jar"},{n:"Courgette",q:0.16667,u:"piece"},
+         {n:"Sweetcorn (tins)",q:0.16667,u:"tin"},{n:"Chickpeas (tins)",q:0.16667,u:"tin"},{n:"Feta",q:0.16667,u:"pack"}]},
+  {id:"r4",serves:6,name:"Nice pasta with olives & peppers",type:"dinner",diets:["veg","nopork"],
+   blurb:"Fresh tomato, olives and pepper with plenty of grana padano.",
+   ingr:[{n:"Pasta",q:0.16667,u:"kg"},{n:"Olives",q:0.16667,u:"jar"},{n:"Grana padano",q:0.16667,u:"pack"},
+         {n:"Tomatoes",q:0.16667,u:"kg"},{n:"Bell pepper",q:0.16667,u:"piece"}]},
+  {id:"r5",serves:6,name:"Big salad with beans & chickpeas",type:"lunch",diets:["veg","vegan","gf","lf","nopork"],
+   blurb:"A proper filling salad — beans, chickpeas, sun-dried tomatoes and crunch.",
+   ingr:[{n:"Lettuce",q:0.5,u:"head"},{n:"Red beans (tins)",q:0.16667,u:"tin"},{n:"Sun-dried tomatoes",q:0.16667,u:"jar"},
+         {n:"Chickpeas (tins)",q:0.16667,u:"tin"},{n:"Tomatoes",q:0.16667,u:"kg"},{n:"Cucumber",q:0.33333,u:"piece"},
+         {n:"Carrots",q:0.16667,u:"kg"}]},
+  {id:"r6",serves:6,name:"Onion & feta quiche",type:"both",diets:["veg","nopork"],
+   blurb:"Puff-pastry quiche, heavy on the feta.",
+   ingr:[{n:"Onion",q:0.66667,u:"piece"},{n:"Feta",q:0.33333,u:"pack"},{n:"Eggs",q:0.83333,u:"piece"},
+         {n:"Puff pastry",q:0.33333,u:"pack"},{n:"Creme fraiche",q:0.041667,u:"kg"},{n:"Milk",q:0.08333,u:"L"}]},
+  {id:"r7",serves:6,name:"Courgette quiche",type:"both",diets:["veg","nopork"],
+   blurb:"The lighter of the two quiches — good cold the next day.",
+   ingr:[{n:"Courgette",q:0.33333,u:"piece"},{n:"Eggs",q:0.83333,u:"piece"},{n:"Puff pastry",q:0.33333,u:"pack"},
+         {n:"Creme fraiche",q:0.041667,u:"kg"},{n:"Milk",q:0.08333,u:"L"}]},
+  {id:"r8",serves:6,name:"Garlic bread",type:"both",diets:["veg","nopork"],
+   blurb:"Bread, garlic, butter and a little mayo — good alongside anything.",
+   ingr:[{n:"Bread",q:0.16667,u:"loaf"},{n:"Garlic",q:0.33333,u:"clove"},{n:"Butter",q:0.03333,u:"pack"},
+         {n:"Mayonnaise",q:0.02,u:"jar"}]}
 ];
+/* No built-in recipes any more — SEED_RECIPES is copied into your editable list
+   once, on first run, and every recipe after that is yours to edit or delete. */
 
 /* =================== DATA =================== */
 const DATA=[
@@ -438,148 +409,67 @@ const DATA=[
 },
 {
   id:"provisions", tab:"Provisions", title:"Provisioning list", type:"shop",
-  intro:"Pantry quantities come from your crew's profiles. Anything needed for the recipes you picked on the Meals tab is listed separately below.",
+  intro:"Your crew's standing list — breakfast, snacks, drinks and non-food. Meals are planned separately on the Meals tab and their ingredients appear below. Quantities scale with crew size and trip length.",
   sections:[
     {t:"Before you shop", tips:[
-      "Agree in the crew chat who wants to cook what, and shop for that. A rough weekly meal plan saves the most money and space.",
-      "Don't plan three meals for every day — one always gets skipped. If you can't name a use for something during the planning, you probably don't need it.",
-      "Ask on site what the previous crew left behind and where you can restock during the week. Anything unusual is only available in the home port.",
-      "Buy fruit and vegetables seasonally and slightly underripe so they ripen aboard — roughly a third ripe, the rest green.",
-      "Fridges aboard are small and often don't cool well. Buy fresh meat for a day or two only.",
-      "Buy liquids in resealable packaging.",
-      "Low waste: no plastic tableware, bring cloth bags and refillable bottles, share sunscreen and shampoo, choose cosmetics without microplastics. If there's a market, go there.",
-      "Bring from home: tea towels (one each), containers, wooden pegs, any unusual spices."],
+      "Ask on site what the previous crew left behind and where you can restock during the week.",
+      "Buy fruit and vegetables slightly underripe so they ripen aboard.",
+      "Fridges aboard are small and often don't cool well — buy fresh things for a day or two at a time.",
+      "Buy liquids in resealable packaging, and take cloth bags rather than plastic."],
      items:[]},
-    {t:"Breakfast", tips:[
-      "The three camps rarely overlap: savoury eaters want eggs and cold cuts, cereal people want muesli and yoghurt, bread people want rolls and spreads. Buying for all three at full volume is the classic overspend.",
-      "Rolls and bread go stale fast. Part-baked rolls in the locker are the reliable fallback."],
+    {t:"Breakfast", items:[
+      {x:"Oat milk", q:4, u:"cartons"},
+      {x:"Milk", q:3, u:"L", cat:"dairy"},
+      {x:"Eggs", q:10, q2:12, u:"eggs", cat:"dairy"},
+      {x:"Bread", q:4, u:"loaves", cat:"gluten", n:"Buy fresh along the way rather than all at once."},
+      {x:"Muesli and oats", q:1, u:"kg", cat:"gluten"},
+      {x:"Nutella", q:1, u:"jar"},
+      {x:"Jam", q:1, u:"small jar"},
+      {x:"Butter", q:1, u:"pack", cat:"dairy"},
+      {x:"Coffee", q:1, u:"kg"},
+      {x:"Cream cheese", q:1, u:"tub", cat:"dairy"},
+      {x:"Cheese", q:2, u:"packs", cat:"dairy"},
+      {x:"Juice", q:3, u:"cartons"},
+      {x:"Tea", q:1, u:"pack"},
+      {x:"Bananas", q:2, u:"kg"},
+      {x:"Apples", q:2, u:"kg"}]},
+    {t:"General pantry", tips:["Check what's already aboard before buying any of this — oil and spices are the classic triple-buy."],
      items:[
-      {x:"Eggs", u:"eggs", r:[{g:"bfEggs",d:2},{g:"crew",d:0.15}], cat:"dairy", n:"Two per savoury breakfast, plus some for cooking. Unrefrigerated if possible."},
-      {x:"Part-baked rolls", u:"rolls", r:[{g:"bfBread",d:1.8},{g:"bfEggs",d:0.4}]},
-      {x:"Fresh bread", free:"for the first 3 days", need:"bfBread", cat:"gluten"},
-      {x:"Muesli, 500 g packs", u:"packs", r:[{g:"bfMuesli",d:0.14}], cat:"gluten", n:"A couple of different kinds."},
-      {x:"Oats", u:"g", r:[{g:"bfMuesli",d:20}], cat:"gluten"},
-      {x:"Yoghurt", u:"kg", r:[{g:"bfMuesli",d:0.15},{g:"bfLight",d:0.08}], cat:"dairy"},
-      {x:"Sliced cheese, 250 g packs", u:"packs", r:[{g:"bfBread",d:0.14},{g:"crew",d:0.02}], cat:"dairy"},
-      {x:"Salami, ham, sliced meats", u:"packs", r:[{g:"bfBread",d:0.18},{g:"bfEggs",d:0.12}], cat:"meat", n:"150 g packs, or a whole dried salami."},
-      {x:"Butter", u:"packs", r:[{g:"bfBread",d:0.05},{g:"crew",d:0.015}], cat:"dairy", n:"250 g, in a firm wrapper."},
-      {x:"Jam", q:1, u:"jar", fix:true, need:"bfBread"},
-      {x:"Honey", q:1, u:"jar", fix:true, need:"bfBread"},
-      {x:"Chocolate spread", q:1, u:"jar", fix:true, need:"bfBread"},
-      {x:"Cream cheese, 250 g", u:"packs", r:[{g:"bfBread",d:0.06},{g:"crew",d:0.005}], cat:"dairy"}]},
-    {t:"Drinks", tips:[
-      "Cans for during the day, bottles for mixing. Don't buy canisters only — people drink from the small bottles.",
-      "Spirits can be bought in duty free on the way out.",
-      "Beer is the single biggest line on the receipt and the heaviest thing to carry. Getting the number of beer drinkers right matters more than any other guess."],
-     items:[
-      {x:"Still water, 5 L canisters", u:"canisters", r:[{g:"crew",d:0.17}]},
-      {x:"Still water, 1.5 L bottles", u:"bottles", r:[{g:"crew",d:0.33}]},
-      {x:"Sparkling water, 1.5 L bottles", u:"bottles", r:[{g:"crew",d:0.17}]},
-      {x:"Juice, 1 L cartons", u:"cartons", r:[{g:"crew",d:0.09}]},
-      {x:"Cola, 0.33 L cans", u:"cans", r:[{g:"soft",d:0.7}], n:"Plus bottles for mixing."},
-      {x:"Cola zero, 0.33 L cans", u:"cans", r:[{g:"soft",d:0.35}]},
-      {x:"Lemonade, 0.33 L cans", u:"cans", r:[{g:"soft",d:0.35}]},
-      {x:"Tonic, 0.33 L cans", u:"cans", r:[{g:"spirits",d:0.5}], n:"Plus bottles for mixing."},
-      {x:"Beer, 0.33 L cans", u:"cans", r:[{g:"beer",d:3}]},
-      {x:"Shandy, 0.5 L cans", u:"cans", r:[{g:"beer",d:0.55}]},
-      {x:"Wine, white and red", u:"bottles", r:[{g:"wine",d:0.17}], n:"Not boxed wine."},
-      {x:"Sparkling wine", u:"bottles", r:[{g:"wine",d:0.08,d2:0.25}]},
-      {x:"Aperitif liqueur", u:"L", r:[{g:"spirits",d:0.035,d2:0.09}]},
-      {x:"Rum", u:"L", r:[{g:"spirits",d:0.035,d2:0.07}]},
-      {x:"Gin", u:"L", r:[{g:"spirits",d:0.035,d2:0.07}]},
-      {x:"Other spirits", free:"crew's call", need:"spirits"},
-      {x:"Ground coffee", u:"kg", r:[{g:"coffee",d:0.011,d2:0.018}], n:"For filter or French press."},
-      {x:"Coffee filters", q:1, u:"pack", fix:true, need:"coffee"},
-      {x:"Ground espresso", q:500, u:"g", fix:true, need:"coffee", n:"If there's a moka pot aboard."},
-      {x:"Tea", free:"as needed", need:"tea", n:"Often already aboard as a leftover."}]},
-    {t:"Cheese and dairy for meals", tips:["Take long-life versions where you can (milk, cream)."],
-     items:[
-      {x:"Long-life milk", u:"L", r:[{g:"bfMuesli",d:0.12},{g:"coffee",d:0.05}], cat:"dairy"},
-      {x:"Plant milk", u:"L", r:[{g:"plant",d:0.2},{g:"crew",d:0.012}]},
-      {x:"Hard cheese in a block", q:0.5, q2:1, u:"kg", cat:"dairy"},
-      {x:"Grated cheese, 250 g packs", q:2, u:"packs", cat:"dairy"},
-      {x:"Mozzarella, 125 g", q:5, u:"packs", cat:"dairy"},
-      {x:"Feta for salad, 125 g", q:8, u:"packs", cat:"dairy"}]},
-    {t:"Meat for cooking", tips:[
-      "Cooling is limited, so meat doesn't keep. Around 200 g per person per meal, and restock in the next port.",
-      "People eat lighter in the heat — plan less meat than you would at home."],
-     items:[
-      {x:"Fresh meat for the first days", free:"per meal plan", cat:"meat", n:"About 200 g per person per meal."}]},
+      {x:"Olive oil", q:1, u:"bottle", fix:true},
+      {x:"Salad dressing", q:1, u:"bottle", fix:true},
+      {x:"Salt", q:1, u:"pack", fix:true},
+      {x:"Pepper", q:1, u:"tin", fix:true},
+      {x:"Oregano or basil", q:1, u:"tin", fix:true}]},
     {t:"Snacks", tips:["Buy plenty — a lot gets eaten between meals, especially on long legs."],
      items:[
-      {x:"Nuts, 250 g packs", u:"packs", r:[{g:"crew",d:0.08}], n:"Cashews, almonds, pistachios, peanuts."},
-      {x:"Crisps and nachos, 150 g bags", u:"bags", r:[{g:"crew",d:0.14}]},
-      {x:"Biscuits, 250 g packs", u:"packs", r:[{g:"crew",d:0.07}], cat:"gluten"},
-      {x:"Sweets and chocolate", free:"as needed"},
-      {x:"Wraps or flatbread, packs of 6", u:"packs", r:[{g:"crew",d:0.07}], cat:"gluten"}]},
-    {t:"Pasta, rice, flour", tips:[
-      "Per meal roughly 800 g of rice or 1.5 kg of pasta for nine people.",
-      "Pasta makes a good cold salad the next day."],
+      {x:"Popcorn", q:3, u:"bags"},
+      {x:"Sandwich biscuits", q:3, u:"packs", cat:"gluten"},
+      {x:"Salted pretzel sticks", q:2, u:"bags", cat:"gluten"},
+      {x:"Assorted biscuits", q:3, u:"packs", cat:"gluten"},
+      {x:"Chocolate", q:4, u:"bars"},
+      {x:"Crisps or nachos", q:4, u:"bags"}]},
+    {t:"Drinks", tips:[
+      "Water is the heaviest thing you'll carry and the easiest to underbuy — this scales at roughly 3 L per person per day, plus extra for coffee and cooking.",
+      "Check whether there's fridge space before committing to a lot of sparkling water."],
      items:[
-      {x:"Penne or fusilli", q:1.5, q2:3, u:"kg", cat:"gluten"},
-      {x:"Rice", q:0.5, q2:1, u:"kg"},
-      {x:"Couscous or a local grain", q:500, u:"g", cat:"gluten"},
-      {x:"Flour", q:1, u:"kg", cat:"gluten", n:"For pancakes, for instance."},
-      {x:"Baking powder", q:1, u:"sachet", fix:true}]},
-    {t:"Tins and spreads", tips:["A lot in this category survives as leftovers — check what's aboard first."],
-     items:[
-      {x:"Chopped tomatoes, 400 g", q:10, u:"tins"},
-      {x:"Sweetcorn", q:2, u:"tins"},
-      {x:"Chickpeas", q:3, u:"tins"},
-      {x:"Beans", q:3, u:"tins"},
-      {x:"Coconut milk, 400 g", q:3, u:"tins"},
-      {x:"Olives", q:2, u:"jars"},
-      {x:"Pesto, red and green, 150 g jars", q:4, u:"jars", cat:"dairy"},
-      {x:"Hummus, 200 g tubs", q:3, u:"tubs"},
-      {x:"Lentils, 500 g", q:1, u:"pack", fix:true},
-      {x:"Capers", free:"optional"},
-      {x:"Tinned tuna", free:"optional", cat:"meat"}]},
-    {t:"Vegetables", tips:[
-      "Buy the big stuff loose, and restock during the week so it keeps.",
-      "Buy what looks good in the shop and deviate from the list freely."],
-     items:[
-      {x:"Tomatoes", q:2, u:"kg"},{x:"Cucumbers", q:4, u:"pieces"},
-      {x:"Lettuce", q:2, u:"heads", n:"Iceberg keeps longer."},
-      {x:"Peppers", q:10, u:"pieces"},{x:"Carrots", q:2, u:"kg"},
-      {x:"Courgettes", q:1, u:"kg"},{x:"Aubergines", q:1, u:"kg"},
-      {x:"Onions, red and white", q:2, u:"nets"},{x:"Garlic", q:2, u:"bulbs"},
-      {x:"Fresh herbs", free:"if available", n:"Mint, basil or similar."},
-      {x:"Avocados", q:6, u:"pieces"}]},
-    {t:"Fruit", tips:["Buy a third ripe, the rest ripens aboard."],
-     items:[
-      {x:"Apples", u:"kg", r:[{g:"crew",d:0.026},{g:"bfLight",d:0.03}]},
-      {x:"Bananas", u:"kg", r:[{g:"crew",d:0.026},{g:"bfLight",d:0.03}]},
-      {x:"Oranges", u:"kg", r:[{g:"crew",d:0.014},{g:"bfLight",d:0.02}]},
-      {x:"Lemons", q:500, u:"g"},
-      {x:"Limes", u:"kg", r:[{g:"spirits",d:0.02},{g:"crew",d:0.005}], n:"Mostly for drinks."},
-      {x:"Melons", q:2, u:"pieces", n:"Not too big, so they stow."},
-      {x:"Ginger", free:"optional"}]},
-    {t:"Oil and spices", tips:[
-      "Bring unusual spices from home in the amount you need (curry, coriander, cinnamon).",
-      "Spices get forgotten on the leftovers list and end up aboard three times over — look before you buy."],
-     items:[
-      {x:"Sunflower oil", q:1, u:"bottle", fix:true},{x:"Olive oil", q:1, u:"bottle", fix:true},
-      {x:"Balsamic vinegar", q:1, u:"bottle", fix:true},{x:"Soy sauce", q:1, u:"bottle", fix:true, cat:"gluten"},
-      {x:"Mustard", q:1, u:"bottle", fix:true},{x:"Sea salt", q:250, u:"g", fix:true},
-      {x:"Sugar", q:500, u:"g", fix:true},{x:"Stock powder", q:250, u:"g", fix:true},
-      {x:"Pepper", q:1, u:"tin", fix:true},{x:"Dried chilli or chilli powder", q:1, u:"tin", fix:true},
-      {x:"Paprika", q:1, u:"tin", fix:true},{x:"Cumin", q:1, u:"tin", fix:true},
-      {x:"Curry powder", q:1, u:"tin", fix:true},
-      {x:"Dried herb mix", q:1, u:"tin", fix:true, n:"Oregano, thyme, rosemary."},
-      {x:"Curry paste", q:1, u:"tube", fix:true}]},
-    {t:"Galley and heads", tips:[
-      "Soap and washing-up liquid biodegradable where possible.",
-      "Bin bags need to be tough and have drawstrings.",
-      "Ask the charter company what's already in the welcome pack (lighter, bin bags, washing-up liquid)."],
-     items:[
-      {x:"Kitchen roll", q:4, u:"rolls"},{x:"Toilet paper", q:12, u:"rolls"},
-      {x:"Hand soap", q:1, u:"per heads", fix:true},{x:"Sponges", q:2, u:"pieces", fix:true},
-      {x:"Bin bags, 120 L", q:1, u:"roll", fix:true, n:"Very tough, with drawstrings."},
-      {x:"Bin bags, 30–50 L", q:1, u:"roll", fix:true},{x:"Bin bags, 10 L", q:1, u:"roll", fix:true},
-      {x:"Washing-up liquid", q:1, u:"bottle", fix:true},{x:"Long lighter", q:1, u:"piece", fix:true},
-      {x:"Baking paper", q:1, u:"roll", fix:true},{x:"Foil", q:1, u:"roll", fix:true},
-      {x:"Tea towels", free:"from home", n:"One per person is enough."},
-      {x:"Food containers", free:"from home"},{x:"Wooden pegs", free:"from home"}]}
+      {x:"Water", u:"L", r:[{g:"crew",d:3}], n:"Plus extra for coffee and cooking."},
+      {x:"Sparkling water", q:12, u:"bottles", n:"Only as much as will fit in the fridge."},
+      {x:"Vodka or cachaca", q:1, u:"bottle", n:"For caipirinhas."},
+      {x:"Limes", q:12, u:"limes", n:"For caipirinhas."},
+      {x:"Sugar, brown or white", q:1, u:"pack", n:"For caipirinhas."},
+      {x:"Ice cube tray", q:1, u:"piece", fix:true, n:"Check whether the boat already has one."},
+      {x:"Syrup for sparkling water", q:1, u:"bottle"},
+      {x:"Croatian wine", q:2, u:"bottles", n:"Worth trying something local and cheap."}]},
+    {t:"Non-food", items:[
+      {x:"Soap", q:1, u:"bottle", fix:true},
+      {x:"Dish soap", q:1, u:"bottle", fix:true},
+      {x:"Bin bags, large", q:1, u:"roll", fix:true},
+      {x:"Bin bags, small (heads)", q:1, u:"roll", fix:true},
+      {x:"Sponges and cloths", free:"already have these"},
+      {x:"Toilet paper", q:12, u:"rolls"},
+      {x:"Floor cloth", q:1, u:"piece", fix:true, n:"For spills."},
+      {x:"Gas lighter", q:1, u:"piece", fix:true},
+      {x:"Clothes pegs", q:8, u:"pegs", fix:true, n:"Not aboard — buy a cheap pack of 6 to 8."}]}
   ]
 },
 {
@@ -615,13 +505,25 @@ const DATA=[
 /* =================== STATE =================== */
 const KEY="skipper-trip-v3";
 let S={done:{},own:{},custom:[],trip:{boat:"",marina:"",start:"",end:""},
-       crew:[],crewManual:9,daysManual:8,c:{n1:"",p1:"",n2:"",p2:"",mail:""},meals:{},customRecipes:[],spoonKey:"65f4311621d041f5a37b35d5345fde6d",tripCode:""};
+       crew:[],crewManual:9,daysManual:8,c:{n1:"",p1:"",n2:"",p2:"",mail:""},meals:{},customRecipes:[],spoonKey:"65f4311621d041f5a37b35d5345fde6d",tripCode:"",seeded:false};
 let active=0, query="", collapsed={};
 let liveSuggestions=[], liveLoading=false, liveError="";
 let spoonResults=[], spoonLoading=false, spoonError="";
 let syncingRemote=false, fbStatus="";
-let draftRecipe={name:"",type:"dinner",url:"",blurb:"",serves:4,diets:[],ingr:[{n:"",q:"",u:"piece"}]};
-function blankDraft(){ draftRecipe={name:"",type:"dinner",url:"",blurb:"",serves:4,diets:[],ingr:[{n:"",q:"",u:"piece"}]}; }
+let draftRecipe={id:"",name:"",type:"dinner",url:"",blurb:"",serves:6,diets:[],ingr:[{n:"",q:"",u:"piece"}]};
+function blankDraft(){ draftRecipe={id:"",name:"",type:"dinner",url:"",blurb:"",serves:6,diets:[],ingr:[{n:"",q:"",u:"piece"}]}; }
+function editRecipe(id){
+  const r=(S.customRecipes||[]).find(x=>x.id===id); if(!r) return;
+  const serves=r.serves||1;
+  draftRecipe={
+    id:r.id, name:r.name||"", type:r.type||"dinner", url:r.url||"", blurb:r.blurb||"",
+    serves, diets:(r.diets||[]).slice(),
+    ingr:(r.ingr||[]).map(i=>({n:i.n, q:Math.round((i.q*serves)*100)/100, u:i.u}))
+  };
+  if(!draftRecipe.ingr.length) draftRecipe.ingr=[{n:"",q:"",u:"piece"}];
+  renderMeals();
+  const f=$("recipeForm"); if(f) f.scrollIntoView({behavior:"smooth",block:"start"});
+}
 function waitForFb(timeoutMs=3000){
   return new Promise(resolve=>{
     if(window.__fb) return resolve(true);
@@ -641,7 +543,13 @@ async function fbPush(){
   await window.__fb.push(S.tripCode, payload);
 }
 
-async function load(){ try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){} }
+async function load(){
+  try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){}
+  if(!S.seeded && !(S.customRecipes||[]).length){
+    S.customRecipes=JSON.parse(JSON.stringify(SEED_RECIPES));
+    S.seeded=true;
+  }
+}
 let tmr, pushTmr;
 function save(){
   clearTimeout(tmr);
@@ -767,7 +675,7 @@ function crewNeeds(){
   if(dietCount("lf")>0) need.push("lf");
   return need;
 }
-function allRecipes(){ return RECIPES.concat(S.customRecipes||[]); }
+function allRecipes(){ return S.customRecipes||[]; }
 function recipeViolations(r){ return crewNeeds().filter(k=>r.diets.indexOf(k)===-1); }
 function recipeAllergyHits(r){
   const words=[];
@@ -1087,7 +995,8 @@ function renderMeals(){
     html+=`<section><button class="sec-head" data-sec="x"><span class="sec-title">Your recipes</span>
       <span class="sec-count">${S.customRecipes.length}</span></button>
       <ul>${S.customRecipes.map(r=>`<li><label class="tick" style="cursor:default"><span class="txt">${esc(r.name)}
-        <span class="note">${r.type==="both"?"Lunch or dinner":r.type==="lunch"?"Lunch":"Dinner"}${r.url?` · <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--done)">source</a>`:""}</span></span></label>
+        <span class="note">${r.type==="both"?"Lunch or dinner":r.type==="lunch"?"Lunch":"Dinner"} · ${(r.ingr||[]).length} ingredients${r.url?` · <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--done)">source</a>`:""}</span></span></label>
+        <button class="btn" data-editrecipe="${r.id}" type="button" style="margin:10px 0;background:#fff;color:var(--ink);border:1px solid var(--line);padding:6px 12px;font-size:14px">Edit</button>
         <button class="del" data-delrecipe="${r.id}" title="Remove">×</button></li>`).join("")}</ul></section>`;
   }
   bodyEl.innerHTML=html;
@@ -1157,7 +1066,7 @@ async function spoonUse(id){
     if(dt.some(x=>x==="dinner"||x==="main course"||x==="main dish")) type="dinner";
     else if(dt.indexOf("lunch")!==-1) type="lunch";
     draftRecipe={
-      name:d.title||"", type, url:d.sourceUrl||d.spoonacularSourceUrl||"",
+      id:"", name:d.title||"", type, url:d.sourceUrl||d.spoonacularSourceUrl||"",
       blurb:"", serves:d.servings||4, diets,
       ingr:(d.extendedIngredients||[]).map(i=>({n:i.nameClean||i.name||"ingredient", q:i.amount||1, u:i.unit||"piece"}))
     };
@@ -1229,8 +1138,8 @@ function ingredientRow(ing,i){
 }
 function renderRecipeForm(){
   const DRD=[["veg","Vegetarian"],["vegan","Vegan"],["gf","Gluten-free"],["lf","Dairy-free"],["nopork","No pork"]];
-  return `<div class="panel">
-    <h2>Add your own recipe</h2>
+  return `<div class="panel" id="recipeForm">
+    <h2>${draftRecipe.id?"Edit recipe":"Add your own recipe"}</h2>
     <div class="rowlab">Spoonacular API key (stored on this device only, never in the site's code)</div>
     <input id="spoonKey" value="${esc(S.spoonKey||"")}" placeholder="Paste your key from spoonacular.com/food-api/console"
       style="width:100%;padding:9px 11px;font:inherit;font-size:14.5px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
@@ -1272,7 +1181,10 @@ function renderRecipeForm(){
     <div>${draftRecipe.ingr.map((ing,i)=>ingredientRow(ing,i)).join("")}</div>
     <div style="margin-top:8px"><button class="btn" id="drAddRow" type="button" style="background:#fff;color:var(--ink);border:1px solid var(--line)">+ Add ingredient</button></div>
 
-    <div style="margin-top:14px"><button class="btn" id="drSave" type="button">Save recipe</button></div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="drSave" type="button">${draftRecipe.id?"Save changes":"Save recipe"}</button>
+      ${draftRecipe.id?`<button class="btn" id="drCancel" type="button" style="background:#fff;color:var(--ink);border:1px solid var(--line)">Cancel</button>`:""}
+    </div>
   </div>`;
 }
 function renderList(){
@@ -1484,17 +1396,25 @@ bodyEl.addEventListener("click",e=>{
     if(lines.length) draftRecipe.ingr=lines;
     renderMeals(); return;
   }
+  if(btn.id==="drCancel"){ blankDraft(); renderMeals(); return; }
   if(btn.id==="drSave"){
     const name=draftRecipe.name.trim();
-    const serves=Math.max(1,parseFloat(draftRecipe.serves)||4);
+    const serves=Math.max(1,parseFloat(draftRecipe.serves)||6);
     const ingr=draftRecipe.ingr.filter(i=>i.n&&i.n.trim())
       .map(i=>({n:i.n.trim(), q:(parseFloat(i.q)||0.1)/serves, u:(i.u||"piece").trim()||"piece"}));
     if(!name||!ingr.length){ alert("Give the recipe a name and at least one ingredient."); return; }
     S.customRecipes=S.customRecipes||[];
-    S.customRecipes.push({id:"c"+Date.now().toString(36), name, type:draftRecipe.type,
-      diets:draftRecipe.diets.slice(), blurb:draftRecipe.blurb.trim(), url:draftRecipe.url.trim(), ingr});
+    if(draftRecipe.id){
+      const i=S.customRecipes.findIndex(r=>r.id===draftRecipe.id);
+      if(i!==-1) S.customRecipes[i]={id:draftRecipe.id, serves, name, type:draftRecipe.type,
+        diets:draftRecipe.diets.slice(), blurb:draftRecipe.blurb.trim(), url:draftRecipe.url.trim(), ingr};
+    } else {
+      S.customRecipes.push({id:"c"+Date.now().toString(36), serves, name, type:draftRecipe.type,
+        diets:draftRecipe.diets.slice(), blurb:draftRecipe.blurb.trim(), url:draftRecipe.url.trim(), ingr});
+    }
     blankDraft(); save(); render(); return;
   }
+  if(btn.dataset.editrecipe){ editRecipe(btn.dataset.editrecipe); return; }
   if(btn.dataset.delrecipe){
     const id=btn.dataset.delrecipe;
     S.customRecipes=(S.customRecipes||[]).filter(r=>r.id!==id);
