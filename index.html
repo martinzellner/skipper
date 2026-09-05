@@ -633,13 +633,21 @@ function waitForFb(timeoutMs=3000){
   });
 }
 
+let lastPushedJSON=null;
+function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); return p; }
+async function fbPush(){
+  const payload=pickShare();
+  lastPushedJSON=JSON.stringify(payload);
+  await window.__fb.push(S.tripCode, payload);
+}
+
 async function load(){ try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){} }
 let tmr; function save(){
   clearTimeout(tmr);
   tmr=setTimeout(async()=>{
     try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
     if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
-      try{ await window.__fb.push(S.tripCode, pickShare()); }
+      try{ await fbPush(); }
       catch(e){ fbStatus="Sync error — check your connection."; }
     }
   },250);
@@ -1171,8 +1179,15 @@ function genCode(){
 }
 function subscribeFb(code){
   window.__fb.subscribe(code, data=>{
-    if(data){ syncingRemote=true; applyShare(data); syncingRemote=false; }
-    fbStatus="Synced just now"; render();
+    if(data){
+      const incoming=JSON.stringify(shareSubset(data));
+      if(incoming===lastPushedJSON) return; // our own write echoing back — ignore, don't disturb typing
+      syncingRemote=true; applyShare(data); syncingRemote=false;
+      fbStatus="Updated from another device.";
+      render();
+    } else {
+      fbStatus="Synced just now"; renderTrip();
+    }
   }, err=>{ fbStatus="Sync error — check your connection."; renderTrip(); });
 }
 async function fbStart(){
@@ -1180,12 +1195,12 @@ async function fbStart(){
   if(!have || !fbConfigured()){ fbStatus="Firebase isn't configured yet."; renderTrip(); return; }
   const code=genCode();
   fbStatus="Connecting…"; S.tripCode=code; renderTrip();
-  try{ await window.__fb.push(code, pickShare()); subscribeFb(code); }
+  try{ await fbPush(); fbStatus="Synced just now"; subscribeFb(code); renderTrip(); }
   catch(e){ fbStatus="Couldn't start live sync — check your Firebase setup."; renderTrip(); }
 }
 function fbStop(){
   if(window.__fb) window.__fb.unsubscribe();
-  S.tripCode=""; fbStatus=""; save(); render();
+  S.tripCode=""; fbStatus=""; lastPushedJSON=null; save(); render();
 }
 async function fbCopyLink(){
   const base=(location.protocol.indexOf("http")===0) ? location.origin+location.pathname : "";
