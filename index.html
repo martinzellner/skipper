@@ -642,15 +642,20 @@ async function fbPush(){
 }
 
 async function load(){ try{ const raw=localStorage.getItem(KEY); if(raw) S=Object.assign(S,JSON.parse(raw)); }catch(e){} }
-let tmr; function save(){
+let tmr, pushTmr;
+function save(){
   clearTimeout(tmr);
   tmr=setTimeout(async()=>{
     try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
-    if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
+  },250);
+  // Push to Firestore on a longer delay — one write per pause, not per keystroke.
+  if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
+    clearTimeout(pushTmr);
+    pushTmr=setTimeout(async()=>{
       try{ await fbPush(); }
       catch(e){ fbStatus="Sync error — check your connection."; }
-    }
-  },250);
+    },1500);
+  }
 }
 
 /* =================== MODEL =================== */
@@ -1184,11 +1189,11 @@ function subscribeFb(code){
       if(incoming===lastPushedJSON) return; // our own write echoing back — ignore, don't disturb typing
       syncingRemote=true; applyShare(data); syncingRemote=false;
       fbStatus="Updated from another device.";
-      render();
+      if(isTyping()) pendingRender=true; else render();
     } else {
-      fbStatus="Synced just now"; renderTrip();
+      fbStatus="Synced just now"; if(!isTyping()) renderTrip();
     }
-  }, err=>{ fbStatus="Sync error — check your connection."; renderTrip(); });
+  }, err=>{ fbStatus="Sync error — check your connection."; if(!isTyping()) renderTrip(); });
 }
 async function fbStart(){
   const have=await waitForFb();
@@ -1346,11 +1351,49 @@ function renderSearch(){
   });
   bodyEl.innerHTML=hits?html:`<p class="empty">Nothing matches “${esc(query)}”.</p>`;
 }
-function render(){
-  renderTabs(); renderHead();
-  if(query.trim()&&!isForm(active)){ introEl.style.display="none"; renderSearch(); }
-  else{ introEl.style.display=""; renderList(); }
+/* Rebuilding innerHTML destroys the focused field, so remember where the cursor
+   was and put it back afterwards. Without this, typing anywhere jumps around. */
+function focusKey(el){
+  if(!el || !bodyEl.contains(el)) return null;
+  const tag=el.tagName.toLowerCase();
+  if(!/^(input|select|textarea)$/.test(tag)) return null;
+  if(el.id) return "#"+el.id;
+  let sel=tag;
+  for(let i=0;i<el.attributes.length;i++){
+    const a=el.attributes[i];
+    if(a.name.indexOf("data-")===0) sel+='['+a.name+'="'+a.value.replace(/"/g,'\\"')+'"]';
+  }
+  return sel===tag?null:sel;
 }
+function withFocus(fn){
+  const el=document.activeElement, key=focusKey(el);
+  let start=null,end=null;
+  if(key){ try{ start=el.selectionStart; end=el.selectionEnd; }catch(e){} }
+  fn();
+  if(!key) return;
+  let next=null; try{ next=bodyEl.querySelector(key); }catch(e){}
+  if(!next) return;
+  try{ next.focus({preventScroll:true}); }catch(e){ next.focus(); }
+  if(start!=null && next.setSelectionRange){
+    try{ next.setSelectionRange(start,end); }catch(e){}
+  }
+}
+function isTyping(){
+  const el=document.activeElement;
+  return !!(el && bodyEl.contains(el) && /^(input|textarea|select)$/i.test(el.tagName));
+}
+let pendingRender=false;
+function render(){
+  withFocus(()=>{
+    renderTabs(); renderHead();
+    if(query.trim()&&!isForm(active)){ introEl.style.display="none"; renderSearch(); }
+    else{ introEl.style.display=""; renderList(); }
+  });
+}
+/* If a remote update lands mid-typing, hold the redraw until the field is left. */
+document.addEventListener("focusout",()=>{
+  setTimeout(()=>{ if(pendingRender && !isTyping()){ pendingRender=false; render(); } },120);
+});
 
 /* =================== EVENTS =================== */
 tabsEl.addEventListener("click",e=>{
@@ -1398,9 +1441,9 @@ bodyEl.addEventListener("change",e=>{
     return;
   }
   const dt=e.target.closest("input[data-t]");
-  if(dt&&(dt.dataset.t==="start"||dt.dataset.t==="end")){ S.trip[dt.dataset.t]=dt.value; save(); render(); }
+  if(dt&&(dt.dataset.t==="start"||dt.dataset.t==="end")){ S.trip[dt.dataset.t]=dt.value; save(); if(!isTyping()) render(); else pendingRender=true; }
   const ar=e.target.closest("input[data-f='arrival']");
-  if(ar){ const m=S.crew.find(x=>x.id===ar.dataset.id); if(m){ m.arrival=ar.value; save(); render(); } }
+  if(ar){ const m=S.crew.find(x=>x.id===ar.dataset.id); if(m){ m.arrival=ar.value; save(); if(!isTyping()) render(); else pendingRender=true; } }
 });
 bodyEl.addEventListener("input",e=>{
   const t=e.target;
