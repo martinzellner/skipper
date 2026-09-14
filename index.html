@@ -2928,6 +2928,10 @@ if("serviceWorker" in navigator){
   }
   searchEl.style.display=isForm(active)?"none":"";
   render();
+  // The Firebase block is a module importing from a CDN, so window.__fb lands well
+  // after this first paint. Without a second render the share panel stays stuck on
+  // "not set up yet" and never offers the button that starts live sync.
+  if(!S.tripCode) waitForFb().then(ok=>{ if(ok) render(); });
 })();
 </script>
 </body>

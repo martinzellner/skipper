@@ -1,6 +1,6 @@
 /* Skipper Trip Planner — offline service worker.
    Bump CACHE when you upload a new index.html, otherwise browsers keep serving the old one. */
-const CACHE = 'skipper-v39';
+const CACHE = 'skipper-v40';
 
 const SHELL = [
   './',
