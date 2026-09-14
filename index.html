@@ -4,159 +4,314 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Skipper — trip planner</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#072A26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Skipper">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <style>
   :root{
-    --ink:#0A2F2C; --ink-soft:#4A6B67; --paper:#EDF1EF; --card:#fff;
-    --line:#C9D6D2; --deep:#0A2F2C; --buoy:#C4172B; --sun:#E8A317; --done:#1C7C6B; --r:10px;
+    --ink:#072A26;          /* deep sea — text */
+    --ink-2:#4A6B67;        /* muted */
+    --paper:#EEF2F0;        /* chart paper */
+    --card:#FFFFFF;
+    --line:#D3DEDA;
+    --deep:#072A26;         /* header + nav */
+    --deep-2:#0E4139;
+    --brass:#DFA327;        /* instrument brass — progress, active */
+    --done:#12776A;         /* confirmed */
+    --alert:#BE1B2C;        /* danger only */
+    --r:12px;
+    --nav-h:60px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
   body{background:var(--paper);color:var(--ink);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.45}
-  header{background:var(--deep);color:#EDF1EF;padding:14px 16px 0;position:sticky;top:0;z-index:20;
-    padding-top:calc(14px + env(safe-area-inset-top))}
-  .brand{font-size:13px;font-weight:600;color:#7FB3A9;margin-bottom:8px}
-  h1{font-size:26px;line-height:1.1;margin:0 0 10px;font-weight:700;letter-spacing:-.02em}
-  .meter{display:flex;gap:2px;height:10px;margin-bottom:10px;background:rgba(255,255,255,.16);
-    border-radius:2px;overflow:hidden}
-  .meter span{flex:1}
-  .meter span.on{background:var(--sun)}
-  .meter.solid{display:block}
-  .meter.solid i{display:block;height:100%;background:var(--sun)}
-  .count{display:flex;justify-content:space-between;align-items:center;gap:10px;
-    font-size:14px;color:#9EC5BD;padding-bottom:12px}
-  .count button{background:none;border:1px solid rgba(255,255,255,.3);color:#9EC5BD;font:inherit;
-    font-size:13px;padding:4px 10px;border-radius:99px;cursor:pointer;white-space:nowrap}
-  nav{display:flex;overflow-x:auto;background:var(--deep);scrollbar-width:none;
-    border-top:1px solid rgba(255,255,255,.12);position:sticky;top:0;z-index:19}
-  nav::-webkit-scrollbar{display:none}
-  nav button{flex:0 0 auto;background:none;border:none;border-bottom:3px solid transparent;color:#7FB3A9;
-    font:inherit;font-size:14px;font-weight:600;padding:12px 14px;cursor:pointer;white-space:nowrap}
-  nav button[aria-selected="true"]{color:#fff;border-bottom-color:var(--sun)}
-  main{padding:16px 14px 60px;max-width:760px;margin:0 auto}
-  .intro{font-size:15px;color:var(--ink-soft);margin:0 0 16px;max-width:62ch}
-  .search{width:100%;padding:11px 14px;font:inherit;font-size:16px;border:1px solid var(--line);
-    border-radius:var(--r);background:var(--card);color:var(--ink);margin-bottom:16px}
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  button,input,select,textarea{font:inherit;color:inherit}
+  :focus-visible{outline:2.5px solid var(--brass);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ---------- header ---------- */
+  header{background:var(--deep);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 0;
+    position:sticky;top:0;z-index:20}
+  .head-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  h1{font-size:27px;line-height:1.05;margin:0;font-weight:680;letter-spacing:-.025em}
+  .head-sub{font-size:13.5px;color:#8FBDB4;margin-top:5px;font-variant-numeric:tabular-nums}
+  .offline-dot{display:none;align-items:center;gap:5px;font-size:12px;color:#F0C27A;margin-top:6px}
+  body.is-offline .offline-dot{display:inline-flex}
+  .offline-dot i{width:7px;height:7px;border-radius:50%;background:#F0C27A;display:block}
+  .ghost{background:none;border:1px solid rgba(255,255,255,.28);color:#B8D8D1;
+    font-size:13px;padding:6px 12px;border-radius:99px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  .ghost:hover{border-color:#fff;color:#fff}
+  .meter{height:4px;margin:12px -16px 0;background:rgba(255,255,255,.14);display:flex}
+  .meter i{display:block;height:100%;background:var(--brass);transition:width .25s ease}
+
+  /* ---------- segmented sub-nav (checklists) ---------- */
+  .subnav{display:flex;gap:6px;overflow-x:auto;background:var(--deep);padding:12px 16px;
+    scrollbar-width:none;position:sticky;top:0;z-index:19}
+  .subnav::-webkit-scrollbar{display:none}
+  .subnav[hidden]{display:none}
+  .subnav button{flex:0 0 auto;background:rgba(255,255,255,.08);border:none;color:#A8CFC7;
+    font-size:14px;font-weight:600;padding:9px 15px;border-radius:99px;cursor:pointer}
+  .subnav button[aria-selected="true"]{background:#fff;color:var(--deep)}
+
+  /* ---------- bottom navigation ---------- */
+  nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;
+    background:var(--deep);border-top:1px solid rgba(255,255,255,.1);
+    padding-bottom:env(safe-area-inset-bottom)}
+  nav.bottom button{flex:1;background:none;border:none;cursor:pointer;color:#7FB0A7;
+    height:var(--nav-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    font-size:11.5px;font-weight:600;letter-spacing:.01em;position:relative;padding:0}
+  nav.bottom button svg{width:23px;height:23px;stroke:currentColor;fill:none;
+    stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  nav.bottom button[aria-selected="true"]{color:#fff}
+  nav.bottom button[aria-selected="true"]::before{content:"";position:absolute;top:0;left:22%;right:22%;
+    height:3px;background:var(--brass);border-radius:0 0 3px 3px}
+  nav.bottom button.sos[aria-selected="true"]{color:#FF9AA4}
+  nav.bottom button.sos[aria-selected="true"]::before{background:var(--alert)}
+
+  main{padding:18px 14px calc(var(--nav-h) + 40px);max-width:760px;margin:0 auto}
+  .intro{font-size:15.5px;color:var(--ink-2);margin:0 0 18px;max-width:60ch;line-height:1.5}
+  .search{width:100%;padding:12px 15px;font-size:16px;border:1px solid var(--line);
+    border-radius:var(--r);background:var(--card);margin-bottom:16px}
   .search:focus{outline:2px solid var(--done);outline-offset:1px;border-color:transparent}
+
+  /* ---------- cards & sections ---------- */
   section{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    margin-bottom:12px;overflow:hidden}
-  .sec-head{display:flex;align-items:baseline;gap:10px;width:100%;background:none;border:none;font:inherit;
-    text-align:left;padding:13px 14px;cursor:pointer;color:var(--ink)}
-  .sec-head:hover{background:#F5F8F7}
-  .step{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--done);min-width:1.4em;flex:0 0 auto}
-  .sec-title{font-weight:700;font-size:17px;flex:1;letter-spacing:-.01em}
-  .sec-when{display:block;font-weight:500;font-size:14px;color:var(--ink-soft);margin-top:2px}
-  .sec-count{font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
-  .sec-head.complete .sec-count{color:var(--done);font-weight:600}
-  ul{list-style:none;margin:0;padding:0 0 6px;border-top:1px solid var(--line)}
-  li{border-bottom:1px solid #EAF0EE;display:flex;align-items:flex-start;gap:8px}
+    margin-bottom:14px;overflow:hidden}
+  .sec-head{display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;
+    text-align:left;padding:15px 16px;cursor:pointer;min-height:56px}
+  .sec-head:hover{background:#F6F9F8}
+  .step{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;color:#fff;flex:0 0 auto;
+    background:var(--done);width:23px;height:23px;border-radius:50%;display:flex;
+    align-items:center;justify-content:center}
+  .sec-title{font-weight:680;font-size:17.5px;flex:1;letter-spacing:-.015em;line-height:1.25}
+  .ico{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;
+    stroke-linejoin:round;flex:0 0 auto}
+  .ico.dim{color:#8AA39E}
+  .sec-head .ico{color:var(--done)}
+  .fact{display:flex;gap:13px;align-items:flex-start;padding:13px 16px;border-bottom:1px solid #EDF2F0}
+  .fact:last-child{border-bottom:none}
+  .fact .ico{margin-top:1px;color:#8AA39E}
+  .fact b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-2);font-weight:650;margin-bottom:3px}
+  .fact span{font-size:15.5px;line-height:1.45}
+  .fact > div{min-width:0;flex:1}
+  .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#8AA39E;
+    padding:16px 16px 7px;background:#F8FAF9;border-bottom:1px solid #EDF2F0}
+  .grp:first-child{padding-top:14px}
+  .echips{display:flex;flex-wrap:wrap;gap:7px;margin-top:3px}
+  .echip{display:inline-flex;align-items:baseline;gap:6px;background:var(--alert);color:#fff;
+    text-decoration:none;font-weight:660;font-size:15px;padding:7px 13px;border-radius:99px;
+    font-variant-numeric:tabular-nums}
+  .echip i{font-style:normal;font-weight:450;font-size:12.5px;opacity:.88}
+  .echip.plain{background:#EFF4F2;color:var(--ink-2);font-weight:550}
+  .bins{display:flex;flex-direction:column;gap:7px;margin-top:5px}
+  .bin{display:flex;align-items:baseline;gap:9px;font-size:14.5px;line-height:1.4}
+  .bin b{font-weight:640;flex:0 0 auto;color:var(--ink)}
+  .bin > span{color:var(--ink-2);min-width:0}
+  .swatch{width:13px;height:13px;border-radius:4px;flex:0 0 auto;align-self:center;
+    border:1px solid rgba(7,42,38,.18);box-shadow:inset 0 -2px 3px rgba(0,0,0,.08)}
+  .bin-note{display:block;font-size:14px;color:var(--ink-2);line-height:1.45;padding-left:22px}
+  .wx{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .wx-line{font-size:15px;line-height:1.5}
+  .tag{display:inline-block;background:#E7F1EE;color:var(--done);font-weight:660;font-size:13.5px;
+    padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tag.time{background:var(--deep);color:#fff}
+  .tag.ch{background:#FBF0D8;color:#8A6316}
+  .mcard{border-bottom:1px solid #EDF2F0}
+  .mcard:last-of-type{border-bottom:none}
+  .mhead{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;
+    padding:14px 16px;cursor:pointer;text-align:left;min-height:58px}
+  .mhead:hover{background:#F6F9F8}
+  .mname{font-weight:640;font-size:16.5px;flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mmeta{flex:1;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;text-align:right}
+  .mbody{padding:0 16px 16px}
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#EFF4F2;
+    color:var(--ink-2);padding:3px 8px;border-radius:99px;margin-left:5px}
+  .badge.warn-b{background:#FDF2F3;color:var(--alert)}
+  .sec-when{display:block;font-weight:450;font-size:14px;color:var(--ink-2);margin-top:3px}
+  .sec-count{font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:0 0 auto;
+    background:#EFF4F2;padding:3px 9px;border-radius:99px}
+  .sec-head.complete .sec-count{color:#fff;background:var(--done)}
+  .chev{flex:0 0 auto;width:9px;height:9px;border-right:2px solid #A9BCB8;border-bottom:2px solid #A9BCB8;
+    transform:rotate(45deg);margin-left:2px;transition:transform .2s}
+  .sec-head.closed .chev{transform:rotate(-45deg)}
+
+  ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+  li{border-bottom:1px solid #EDF2F0;display:flex;align-items:center;gap:6px;min-height:54px}
   li:last-child{border-bottom:none}
-  li.alert{background:#FCF0F1}
-  li.off .txt{color:#9BB0AC}
-  label.tick{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;cursor:pointer;min-height:44px;flex:1}
-  label.tick:active{background:#F5F8F7}
-  input[type=checkbox]{appearance:none;flex:0 0 auto;width:22px;height:22px;margin:1px 0 0;
-    border:2px solid var(--line);border-radius:5px;background:#fff;cursor:pointer}
+  li.alert{background:#FDF2F3;box-shadow:inset 3px 0 0 var(--alert)}
+  li.off{opacity:.5}
+  label.tick{display:flex;gap:14px;align-items:center;padding:12px 16px;cursor:pointer;flex:1;min-width:0}
+  label.tick:active{background:#F6F9F8}
+  input[type=checkbox]{appearance:none;flex:0 0 auto;width:24px;height:24px;margin:0;
+    border:2px solid #BDCCC8;border-radius:7px;background:#fff;cursor:pointer;transition:.12s}
   input[type=checkbox]:checked{background:var(--done);border-color:var(--done)}
   input[type=checkbox]:checked::after{content:"";display:block;width:6px;height:11px;margin:2px auto 0;
     border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(43deg)}
-  input[type=checkbox]:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
-  .txt{flex:1;font-size:16px;line-height:1.4}
-  input:checked ~ .txt{color:#8FA5A1;text-decoration:line-through}
-  .note{display:block;font-size:14.5px;color:var(--ink-soft);margin-top:3px;line-height:1.4}
-  .note.diet{color:var(--done);font-size:14px}
-  .note.risk{color:var(--buoy);font-weight:500}
-  input:checked ~ .txt .note{color:#A9BAB7}
-  .tips{background:#F3F7F5;font-size:15px;color:var(--ink-soft);padding:2px 14px 10px;border-top:1px solid var(--line)}
-  .tips p{margin:8px 0;line-height:1.4}
-  .warn{background:#FDF1E7;border-left:4px solid var(--sun);padding:12px 14px;font-size:15px}
-  .warn strong{display:block;margin-bottom:2px}
-  .qty{display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding:10px 14px 10px 0;flex:0 0 auto}
-  .rec{font-size:14px;font-weight:600;color:var(--done);white-space:nowrap;font-variant-numeric:tabular-nums}
-  .rec.free{font-weight:500;color:var(--ink-soft)}
-  .rec.none{color:#A9BAB7;text-decoration:line-through}
-  .own{width:78px;padding:5px 7px;font:inherit;font-size:14px;text-align:right;border:1px solid var(--line);
-    border-radius:6px;background:#fff;color:var(--ink)}
+  .txt{flex:1;font-size:16.5px;line-height:1.35;min-width:0}
+  input:checked ~ .txt{color:#93A8A4;text-decoration:line-through;text-decoration-color:#C3D2CF}
+  .note{display:block;font-size:14px;color:var(--ink-2);margin-top:4px;line-height:1.4}
+  .note.diet{color:var(--done)}
+  .note.risk{color:var(--alert);font-weight:550}
+  input:checked ~ .txt .note{color:#AEC0BC}
+
+  .tips{background:#F5F8F7;font-size:14.5px;color:var(--ink-2);padding:4px 16px 12px;
+    border-top:1px solid var(--line);line-height:1.5}
+  .tips p{margin:9px 0}
+  .warn{background:#FDF4E8;box-shadow:inset 4px 0 0 var(--brass);padding:13px 16px;font-size:15px}
+  .warn strong{display:block;margin-bottom:3px}
+
+  /* quantity pill */
+  .qty{display:flex;align-items:center;gap:7px;padding:0 14px 0 0;flex:0 0 auto}
+  .rec{font-size:14px;font-weight:640;color:var(--done);white-space:nowrap;font-variant-numeric:tabular-nums;
+    background:#E7F1EE;padding:5px 11px;border-radius:99px}
+  .rec.free{font-weight:500;color:var(--ink-2);background:#EFF3F1}
+  .rec.none{color:#9FB2AE;background:#F2F5F4;text-decoration:line-through}
+  button.rec{border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font:inherit;
+    font-size:14px;font-weight:640;background:#E7F1EE;color:var(--done)}
+  button.rec .split-ico{width:14px;height:14px;stroke-width:2.1;opacity:.75}
+  button.rec[aria-expanded="true"]{background:var(--done);color:#fff}
+  .split{display:block;margin-top:8px;padding:9px 11px;background:#F5F8F7;border-radius:9px;
+    border-left:3px solid var(--done)}
+  .split-row{display:block;font-size:14px;color:var(--ink-2);line-height:1.5}
+  .split-row b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .sug{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 14px 10px;width:100%;
+    font-size:13.5px;color:var(--ink-2)}
+  .sug .chip{font-size:13px;padding:6px 11px}
+  .own{width:66px;padding:7px 9px;font-size:14px;text-align:right;border:1px solid var(--line);
+    border-radius:8px;background:#fff}
   .own:focus{outline:2px solid var(--done);outline-offset:1px;border-color:transparent}
-  .own::placeholder{color:#A9BAB7}
-  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px;padding:14px}
-  .panel h2{font-size:15px;margin:0 0 12px;color:var(--ink-soft);font-weight:600}
-  .grid{display:grid;gap:12px}
+  .own::placeholder{color:#B4C4C0}
+
+  /* ---------- panels & forms ---------- */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    margin-bottom:14px;padding:16px}
+  .panel h2{font-size:17px;margin:0 0 14px;font-weight:680;letter-spacing:-.015em;
+    display:flex;align-items:center;gap:9px}
+  .panel h2 .ico{color:var(--done)}
+  .boat-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;padding:15px 16px 17px;
+    border-top:1px solid var(--line);background:#FAFCFB}
+  @media(max-width:400px){.boat-grid{grid-template-columns:1fr}}
+  .grid{display:grid;gap:13px}
   @media(min-width:560px){.grid.two{grid-template-columns:1fr 1fr}}
-  .field{display:block;font-size:14px;color:var(--ink-soft)}
-  .field input,.field select{width:100%;margin-top:4px;padding:10px 12px;font:inherit;font-size:16px;
-    border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .field{display:block;font-size:13.5px;color:var(--ink-2);font-weight:550}
+  .field input,.field select{width:100%;margin-top:6px;padding:12px 13px;font-size:16px;
+    border:1px solid var(--line);border-radius:9px;background:#fff}
   .field input:focus,.field select:focus{outline:2px solid var(--done);outline-offset:1px;border-color:transparent}
-  .summary{display:flex;flex-wrap:wrap;gap:18px;padding:14px;border-top:1px solid var(--line);
-    background:#F3F7F5;font-size:15px}
-  .summary div b{display:block;font-size:20px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-  .summary div span{color:var(--ink-soft);font-size:13px}
-  .member{border-bottom:1px solid #EAF0EE;padding:14px}
+
+  .summary{display:flex;flex-wrap:wrap;gap:22px;padding:16px;border-top:1px solid var(--line);
+    background:#F5F8F7}
+  .summary div b{display:block;font-size:23px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+    font-weight:680;line-height:1.15}
+  .summary div span{color:var(--ink-2);font-size:12.5px}
+
+  .member{border-bottom:1px solid #EDF2F0;padding:16px}
   .member:last-of-type{border-bottom:none}
-  .m-top{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-  .m-top input{flex:1;min-width:0;padding:9px 11px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px}
-  .m-top input.time{flex:0 0 auto;width:186px}
-  .rowlab{font-size:12.5px;color:var(--ink-soft);margin:8px 0 5px;font-weight:600}
-  .chips{display:flex;flex-wrap:wrap;gap:6px}
-  .chip{border:1px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:13.5px;
-    padding:5px 11px;border-radius:99px;cursor:pointer}
+  .m-top{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+  .m-top input{flex:1;min-width:0;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:9px}
+  .m-top input.time{flex:0 0 auto;width:180px}
+  .rowlab{font-size:12px;color:var(--ink-2);margin:12px 0 6px;font-weight:650}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--ink-2);font-size:13.5px;
+    padding:7px 12px;border-radius:99px;cursor:pointer;transition:.12s}
   .chip[aria-pressed="true"]{background:var(--done);border-color:var(--done);color:#fff}
-  .chip.thirst[aria-pressed="true"]{background:var(--sun);border-color:var(--sun);color:#2A1D00}
-  .allergy{width:100%;margin-top:10px;padding:9px 11px;font:inherit;font-size:15px;
-    border:1px solid var(--line);border-radius:8px}
-  .del{background:none;border:none;color:#A9BAB7;font-size:22px;cursor:pointer;padding:6px 10px;line-height:1}
-  .del:hover{color:var(--buoy)}
-  .btn{padding:10px 16px;border:none;background:var(--done);color:#fff;font:inherit;font-weight:600;
-    border-radius:8px;cursor:pointer}
-  .btn:disabled{opacity:.55;cursor:default}
-  .add{display:flex;gap:8px;padding:12px 14px}
-  .add input{flex:1;padding:9px 12px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px}
-  .stepper{display:flex;align-items:center;gap:8px}
-  .stepper span{font-size:15px;color:var(--ink-soft);min-width:74px}
-  .stepper button{width:36px;height:36px;border:1px solid var(--line);background:#fff;border-radius:8px;
-    font:inherit;font-size:20px;line-height:1;cursor:pointer;color:var(--ink)}
+  .chip.thirst[aria-pressed="true"]{background:var(--brass);border-color:var(--brass);color:#2B1D00}
+  .allergy{width:100%;margin-top:12px;padding:11px 12px;font-size:15px;
+    border:1px solid var(--line);border-radius:9px}
+
+  .del{background:none;border:none;color:#B9C7C3;font-size:24px;cursor:pointer;
+    padding:12px 14px;line-height:1;flex:0 0 auto}
+  .del:hover{color:var(--alert)}
+  .btn{padding:12px 18px;border:none;background:var(--done);color:#fff;font-weight:640;
+    border-radius:9px;cursor:pointer;font-size:15.5px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.quiet{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .add{display:flex;gap:8px;padding:13px 16px;border-top:1px solid #EDF2F0;background:#FAFCFB}
+  .add input{flex:1;min-width:0;padding:11px 12px;font-size:16px;border:1px solid var(--line);border-radius:9px}
+
+  .stepper{display:flex;align-items:center;gap:9px}
+  .stepper span{font-size:14px;color:var(--ink-2);min-width:46px;font-weight:550}
+  .stepper button{width:40px;height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;
+    font-size:21px;line-height:1;cursor:pointer}
   .stepper button:disabled{opacity:.35;cursor:default}
-  .stepper b{font-size:18px;min-width:2.2em;text-align:center;font-variant-numeric:tabular-nums}
-  .plan{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;
-    margin-bottom:12px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
-  .plan p{flex:1 1 100%;margin:0;font-size:14px;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:12px}
-  .banner{background:#FCF0F1;border:1px solid #F0C9CD;border-radius:var(--r);padding:12px 14px;
-    margin-bottom:12px;font-size:15px}
-  .banner strong{display:block;margin-bottom:2px}
-  .call{display:flex;gap:10px;flex-wrap:wrap;padding:14px}
-  .call a{flex:1 1 150px;text-decoration:none;background:var(--buoy);color:#fff;padding:12px 14px;
-    border-radius:var(--r);font-weight:600;font-size:16px}
-  .call a span{display:block;font-weight:400;font-size:13px;opacity:.85}
-  .call a.mail{background:var(--ink)}
-  .fields{padding:4px 14px 14px;display:grid;gap:10px}
-  .hit{font-size:13px;color:var(--ink-soft);padding:10px 14px 6px;font-weight:600}
-  .empty{color:var(--ink-soft);font-size:15px;padding:20px 14px}
-  .day-top{font-weight:700;font-size:15px;margin-bottom:10px;letter-spacing:-.01em}
-  .suggest-row{flex-direction:column;align-items:stretch;padding:12px 14px}
-  .suggest-row .txt{margin-bottom:6px}
+  .stepper b{font-size:19px;min-width:2.1em;text-align:center;font-variant-numeric:tabular-nums;font-weight:680}
+  .plan{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+    margin-bottom:14px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+  .plan p{flex:1 1 100%;margin:0;font-size:14px;color:var(--ink-2);border-top:1px solid var(--line);
+    padding-top:13px;line-height:1.5}
+
+  .banner{background:#FDF2F3;border:1px solid #F2CBCF;border-radius:var(--r);padding:13px 15px;
+    margin-bottom:14px;font-size:15px}
+  .banner strong{display:block;margin-bottom:3px}
+
+  .call{display:flex;gap:10px;flex-wrap:wrap;padding:16px}
+  .call a{flex:1 1 150px;text-decoration:none;background:var(--alert);color:#fff;padding:14px 15px;
+    border-radius:var(--r);font-weight:640;font-size:16px}
+  .call a span{display:block;font-weight:400;font-size:13px;opacity:.85;margin-top:2px}
+  .call a.mail{background:var(--deep)}
+  .fields{padding:4px 16px 16px;display:grid;gap:12px}
+
+  .hit{font-size:12.5px;color:var(--ink-2);padding:12px 16px 4px;font-weight:650}
+  .empty{color:var(--ink-2);font-size:15px;padding:22px 16px;line-height:1.5}
+  .day-top{font-weight:680;font-size:16px;margin-bottom:12px;letter-spacing:-.015em}
+  .suggest-row{flex-direction:column;align-items:stretch;padding:14px 16px}
+  .suggest-row .txt{margin-bottom:8px}
   .suggest-row a{color:var(--ink);text-decoration:underline}
-  .assign{width:100%;margin-top:2px;padding:9px 11px;font:inherit;font-size:15px;border:1px solid var(--line);
-    border-radius:8px;background:#fff;color:var(--ink)}
-  footer{max-width:760px;margin:0 auto;padding:0 14px 40px;font-size:13px;color:var(--ink-soft)}
+  .assign{width:100%;padding:11px 12px;font-size:15px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  .toast{position:fixed;left:14px;right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));
+    z-index:40;background:var(--deep);color:#fff;border-radius:12px;padding:13px 14px 13px 16px;
+    display:flex;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(7,42,38,.28);
+    max-width:520px;margin:0 auto;font-size:15px}
+  .toast[hidden]{display:none}
+  /* the update prompt sits above the undo toast so the two never cover each other */
+  #updToast{bottom:calc(var(--nav-h) + 78px + env(safe-area-inset-bottom))}
+  .toast span{flex:1;min-width:0}
+  .toast button{background:none;border:1px solid rgba(255,255,255,.35);color:#fff;
+    padding:7px 14px;border-radius:99px;font-weight:640;font-size:14px;cursor:pointer;flex:0 0 auto}
+  .toast button:hover{background:rgba(255,255,255,.12)}
+  footer{max-width:760px;margin:0 auto;padding:0 16px 30px;font-size:12.5px;color:#8FA5A1;line-height:1.5}
   @media (min-width:700px){h1{font-size:32px}}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">Trip planner</div>
-  <h1 id="title"></h1>
-  <div class="meter" id="meter"></div>
-  <div class="count"><span id="count"></span><button id="reset" type="button">Clear ticks</button></div>
+  <div class="head-top">
+    <div>
+      <h1 id="title"></h1>
+      <div class="head-sub" id="count"></div>
+    <div class="offline-dot"><i></i>Offline — everything still works, sync resumes later</div>
+    </div>
+    <button class="ghost" id="reset" type="button">Clear ticks</button>
+  </div>
+  <div class="meter" id="meter"><i style="width:0"></i></div>
 </header>
-<nav id="tabs" role="tablist"></nav>
+<div class="subnav" id="subnav" hidden></div>
 
 <main>
   <p class="intro" id="intro"></p>
   <input class="search" id="search" type="search" placeholder="Search everything" autocomplete="off">
   <div id="body"></div>
 </main>
-<footer>Trip details, ticks and quantities are stored on this device. Handover list adapted from a template by segeln-magazin.de. The built-in recipes are original suggestions, not sourced from any particular site; Spoonacular search uses your own API key, stored only in this browser.</footer>
+<footer>Everything is stored on this device. Handover list adapted from a template by segeln-magazin.de.</footer>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button id="undoBtn" type="button">Undo</button>
+</div>
+<div class="toast" id="updToast" hidden role="status" aria-live="polite">
+  <span>A newer version is ready.</span>
+  <button id="updBtn" type="button">Reload</button>
+</div>
+
+<nav class="bottom" id="tabs" role="tablist"></nav>
 
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
@@ -253,6 +408,230 @@ const SEED_RECIPES=[
    once, on first run, and every recipe after that is yours to edit or delete. */
 
 /* =================== DATA =================== */
+
+/* ---- Mediterranean country notes. Verified Sept 2026; rules change, so treat as a
+   starting point and confirm locally, especially fees and deposit schemes. ---- */
+const COUNTRIES={
+  "":{n:"— select —"},
+  es:{n:"Spain",cur:"Euro (EUR)",emg:"112 · Sea rescue 900 202 202",
+    wx:"Coast radio broadcasts after an announcement on ch 16, then a working channel. Also NAVTEX (Tarifa, Cabo de la Nao) and Puertos del Estado online",plug:"Type C/F · 230 V",
+    shops:"Mercadona, Carrefour, Lidl, Consum, Dia, Eroski",
+    dep:"No national deposit scheme yet. Yellow bin = packaging, green = glass, blue = paper",
+    bins:"Yellow = plastic, cans, cartons · Blue = paper and card · Green igloo = glass · Brown = organic · Grey = everything else",
+    water:"Tap water safe almost everywhere",
+    paper:"No cruising tax for EU boats. The Balearics require a charter licence for commercial use",
+    tip:"Many small shops shut 14:00–17:00; big supermarkets stay open"},
+  fr:{n:"France",cur:"Euro (EUR)",emg:"112 · At sea: 196 (CROSS) · VHF 16",
+    wx:"CROSS broadcasts the bulletin at set times after an announcement on ch 16 — the working channel is given in the announcement. Météo-France marine bulletins also on NAVTEX",plug:"Type E/F · 230 V",
+    shops:"Carrefour, E.Leclerc, Intermarché, Super U, Casino, Lidl",
+    dep:"No deposit on cans or plastic. Some regions take glass back. Yellow bin = packaging",
+    bins:"Yellow bin or bag = all packaging and paper · Green bank = glass · Grey = everything else",
+    water:"Tap water safe",
+    paper:"No cruising tax for EU boats",
+    tip:"France tightened skipper alcohol rules in 2026 — testing after incidents. Most shops shut Sunday afternoon"},
+  mc:{n:"Monaco",cur:"Euro (EUR)",emg:"112 · 17 police · 18 fire",
+    wx:"Monaco Radio and the French CROSS network cover these waters; listen on ch 16 for the announcement",plug:"Type E/F · 230 V",
+    shops:"Carrefour, Casino — or cross into France for cheaper",
+    dep:"Sorted collection; no deposit scheme",
+    bins:"Sorted bins by material, glass separate; bins are well marked and collection is frequent",water:"Tap water safe",
+    paper:"Berths must be booked well ahead and are among the most expensive in the Med",
+    tip:"Anchoring is heavily restricted — check before you drop"},
+  it:{n:"Italy",cur:"Euro (EUR)",emg:"112 · Coastguard 1530 · VHF 16",
+    wx:"METEOMAR bulletins from the coast radio network after an announcement on ch 16, plus NAVTEX (Roma, Trieste, Cagliari). Coastguard on 1530",plug:"Type F/L · 230 V",
+    shops:"Conad, Coop, Esselunga, Carrefour, Lidl, Eurospin, Despar",
+    dep:"No national deposit scheme. Some Coripet machines take PET for shop points",
+    bins:"Blue or white = paper · Yellow = plastic · Green = glass · Brown = organic (umido) · Grey = indifferenziato · Colours vary by town, and some do door-to-door collection on set days instead",
+    water:"Tap water safe; public fountains common",
+    paper:"No cruising tax for EU boats",
+    tip:"Marina staff often knock off 13:00–15:00 — plan arrivals around it"},
+  mt:{n:"Malta",cur:"Euro (EUR)",emg:"112 · VHF 16",
+    wx:"Malta Radio broadcasts weather and navigation warnings after an announcement on ch 16; also NAVTEX",plug:"Type G (UK 3-pin) · 230 V",
+    shops:"Lidl, Welbee's, Pavi, Greens, Smart",
+    dep:"Yes — €0.10 back per bottle or can at BCRS machines in most supermarkets",
+    bins:"Green bag = dry recyclables · White bag = organic · Black bag = everything else · Each bag is collected on its own day, and glass goes to bring-in sites",
+    water:"Tap water is desalinated and safe; many still prefer bottled",
+    paper:"No cruising tax. Clear in at Msida or Grand Harbour",
+    tip:"Bring a UK-style adapter — plugs differ from the rest of the Med"},
+  si:{n:"Slovenia",cur:"Euro (EUR)",emg:"112 · VHF 16",
+    wx:"Koper Radio broadcasts after an announcement on ch 16; Croatian and Italian stations cover the same waters",plug:"Type C/F · 230 V",
+    shops:"Mercator, Spar, Hofer, Tuš, Lidl",
+    dep:"No deposit scheme yet — one is legislated but not in force",
+    bins:"Yellow or 'embalaža' = packaging · Blue = paper · Green = glass · Brown = bio · Black = everything else",
+    water:"Tap water is excellent",
+    paper:"Only about 46 km of coast; marinas at Izola, Portorož, Koper",
+    tip:"Clear in at Koper, Izola or Piran if arriving from Croatia or Italy"},
+  hr:{n:"Croatia",cur:"Euro (EUR) — kuna is long gone",emg:"112 · VHF 16 · Coastguard 195",
+    wx:"Split, Rijeka and Dubrovnik Radio broadcast in Croatian and English at 05:45, 12:45 and 19:45 UTC (Rijeka on ch 24, Split on ch 07/21/23/28, Dubrovnik on ch 04/07 — sources vary by a few minutes). Harbourmasters also run a continuous loop in four languages: Rijeka ch 69, Šibenik ch 73, Split ch 67, Dubrovnik ch 73, updated about 07:00, 13:00 and 19:00 local",plug:"Type C/F · 230 V",
+    shops:"Konzum, Lidl, Plodine, Tommy, Studenac, Spar, Kaufland",
+    dep:"Yes — €0.07 back per PET bottle, can or glass bottle at machines in larger shops",
+    bins:"Yellow (PLASTIKA) = plastic and metal packaging · Blue (PAPIR) = paper · Green (STAKLO) = glass, though Rijeka uses orange · Brown (BIOOTPAD) = food waste · Grey = everything else",
+    water:"Tap water is excellent — refill rather than buying",
+    paper:"Vignette (navigation safety fee, valid to 31 Dec) plus a separate sojourn tax. Charter boats normally have it — ask to see the receipt before leaving the dock",
+    tip:"Studenac is everywhere on the islands but pricey; stock up at Konzum or Plodine on the mainland"},
+  ba:{n:"Bosnia and Herzegovina",cur:"Convertible mark (BAM)",emg:"112 · 122 police · 124 ambulance",
+    wx:"Croatian coast radio covers this stretch — see the Croatia notes",plug:"Type C/F · 230 V",
+    shops:"Bingo, Konzum, Mercator",
+    dep:"No deposit scheme",
+    bins:"Separation is limited outside the cities — mostly mixed bins, occasional paper and plastic containers",water:"Tap water safe in towns",
+    paper:"Only ~20 km of coast at Neum; most boats simply pass through",
+    tip:"Passing Neum by sea needs no clearance if you don't stop"},
+  me:{n:"Montenegro",cur:"Euro (EUR) — used unilaterally, not in the eurozone",emg:"112 · VHF 16",
+    wx:"Bar Radio broadcasts after an announcement on ch 16; Croatian and Italian bulletins also reach here",plug:"Type C/F · 230 V",
+    shops:"Voli, Idea, Franca, Mercator",
+    dep:"No deposit scheme",
+    bins:"Mixed bins are the norm; some coastal towns have separate glass and packaging containers",water:"Tap water safe in coastal towns",
+    paper:"Non-EU: clear in at Zelenika, Bar, Budva or Porto Montenegro. Vignette and harbour fees apply",
+    tip:"Clearing in and out takes real time — budget half a morning"},
+  al:{n:"Albania",cur:"Lek (ALL)",emg:"112 · 127 ambulance · 129 police",
+    wx:"Durrës Radio broadcasts after an announcement on ch 16; coverage is patchy, so carry a second source",plug:"Type C/F · 230 V",
+    shops:"Spar, Conad, Big Market",
+    dep:"No deposit scheme; recycling is limited",
+    bins:"Very little separate collection — expect general waste bins only",
+    water:"Drink bottled water",
+    paper:"Clear in at Durrës, Vlorë, Sarandë or Orikum. An agent speeds things up considerably",
+    tip:"Cash is king; euros often accepted but at poor rates"},
+  gr:{n:"Greece",cur:"Euro (EUR)",emg:"112 · Coastguard 108 · VHF 16",
+    wx:"Olympia Radio broadcasts in Greek and English at 06:00, 10:00, 16:00 and 22:00 local, after an announcement on ch 16 that tells you the working channel for your area. Those channels were reshuffled in May 2026, so take the channel from the announcement rather than an old list. NAVTEX from Iraklio, Kerkyra and Limnos",plug:"Type C/F · 230 V",
+    shops:"Sklavenitis, AB Vassilopoulos, Lidl, My Market, Masoutis, Kritikos",
+    dep:"A national deposit scheme is being rolled out — machines are appearing but coverage is patchy",
+    bins:"Blue = mixed recyclables (packaging, paper, cans) · Blue bell-shaped bank = glass · Green = everything else · Brown = organic in some municipalities",
+    water:"Fine on the mainland; on many islands it's desalinated or brackish, so buy bottled",
+    paper:"TEPAI cruising tax is due monthly for boats over 7 m — see the estimate below. Non-EU boats also need a transit log (DEKPA)",
+    tip:"Island mini-markets run out of fresh produce by afternoon — shop in the morning"},
+  tr:{n:"Turkey",cur:"Turkish lira (TRY)",emg:"112 · VHF 16",
+    wx:"Türk Radyo coast stations broadcast after an announcement on ch 16; also NAVTEX (İstanbul, İzmir, Antalya)",plug:"Type C/F · 230 V",
+    shops:"Migros, BİM, A101, ŞOK, CarrefourSA",
+    dep:"A deposit scheme is being phased in; municipal recycling bins are common",
+    bins:"Marked 'geri dönüşüm' bins for recyclables in towns and marinas; separation is looser outside the cities",
+    water:"Drink bottled — tap water is chlorinated but not usually drunk",
+    paper:"Transit log required, renewed yearly, plus a blue card logging holding-tank pump-outs. Use an agent at Marmaris, Bodrum or Göcek",
+    tip:"Card payments are near-universal, but keep lira cash for small harbours"},
+  cy:{n:"Cyprus",cur:"Euro (EUR)",emg:"112 · VHF 16",
+    wx:"Cyprus Radio broadcasts weather and navigation warnings after an announcement on ch 16; also NAVTEX",plug:"Type G (UK 3-pin) · 230 V",
+    shops:"Alphamega, Lidl, Papantoniou, Sklavenitis, Metro",
+    dep:"No deposit scheme in force yet",
+    bins:"PMD bins for plastic, metal and cartons · Separate paper collection · Glass at bring-banks",
+    water:"Tap water is desalinated and safe",
+    paper:"Clear in at Limassol, Larnaca, Paphos or Ayia Napa. Do not sail between the south and the north — entry via the north closes the south to you",
+    tip:"UK-style plugs here too — bring an adapter"},
+  il:{n:"Israel",cur:"Shekel (ILS)",emg:"100 police · 101 ambulance · 112",
+    wx:"Haifa Radio broadcasts after an announcement on ch 16",plug:"Type H/C · 230 V",
+    shops:"Shufersal, Rami Levy, Osher Ad, Tiv Taam",
+    dep:"Yes — deposit on most bottles and cans, refunded at supermarkets",
+    bins:"Orange = packaging · Blue = paper and card · Metal cages on the street = plastic bottles · Glass at bring-banks",
+    water:"Tap water safe",
+    paper:"Security clearance on arrival is thorough; call ahead on VHF well offshore",
+    tip:"Shops shut from Friday afternoon to Saturday evening — shop Thursday or Friday morning"},
+  lb:{n:"Lebanon",cur:"Lebanese pound (LBP); US dollars widely used",emg:"112 · 140 Red Cross",
+    wx:"Beirut Radio; coverage is unreliable — carry an offline forecast",plug:"Type C/D/G · 230 V",
+    shops:"Spinneys, Carrefour, Charcutier Aoun",
+    dep:"No deposit scheme",
+    bins:"No reliable municipal recycling — bag it and use the marina bins",water:"Drink bottled water",
+    paper:"Check your government's travel advice before planning a stop",
+    tip:"Power cuts are routine — expect generator time in marinas"},
+  sy:{n:"Syria",cur:"Syrian pound (SYP)",emg:"Varies by region",
+    wx:"No dependable service for visiting yachts",plug:"Type C/E/L · 230 V",
+    shops:"Local markets; chains are limited",
+    dep:"No deposit scheme",
+    bins:"No functioning separate collection",water:"Drink bottled water",
+    paper:"Most governments advise against all travel. Cruising is not practical",
+    tip:"Check current advisories before going anywhere near this coast"},
+  eg:{n:"Egypt",cur:"Egyptian pound (EGP)",emg:"122 police · 123 ambulance",
+    wx:"Coast radio after an announcement on ch 16; also NAVTEX (Alexandria, Serapeum)",plug:"Type C/F · 230 V",
+    shops:"Carrefour, Spinneys, Hyper One, Metro",
+    dep:"No deposit scheme",
+    bins:"General waste bins only in most places; informal recyclers sort much of it downstream",water:"Drink bottled water",
+    paper:"An agent is effectively required for clearance. Port Said and Alexandria are the usual entries",
+    tip:"Budget time and baksheesh for paperwork — nothing is quick"},
+  ly:{n:"Libya",cur:"Libyan dinar (LYD)",emg:"Varies by region",
+    wx:"No dependable service for visiting yachts",plug:"Type C/F/L · 230 V",
+    shops:"Local markets; few chains",
+    dep:"No deposit scheme",
+    bins:"No functioning separate collection",water:"Drink bottled water",
+    paper:"Most governments advise against all travel. Ports are not open to cruising yachts in the normal sense",
+    tip:"Check current advisories before approaching this coast"},
+  tn:{n:"Tunisia",cur:"Tunisian dinar (TND) — cannot be taken out of the country",emg:"197 police · 190 ambulance",
+    wx:"Coast radio after an announcement on ch 16; also NAVTEX (Kelibia)",plug:"Type C/E · 230 V",
+    shops:"Carrefour, Monoprix, Magasin Général, Géant",
+    dep:"No deposit scheme",
+    bins:"Mostly general waste; some Eco-Lef collection points take plastic",water:"Drink bottled water",
+    paper:"Clear in at Bizerte, Sidi Bou Saïd, Monastir or Djerba. Customs paperwork is thorough but routine",
+    tip:"Spend your dinars before leaving — you can't export or exchange them"},
+  dz:{n:"Algeria",cur:"Algerian dinar (DZD) — cannot be taken out",emg:"17 police · 14 ambulance",
+    wx:"Coast radio after an announcement on ch 16; coverage is limited",plug:"Type C/F · 230 V",
+    shops:"Ardis, Uno, Numidis",
+    dep:"No deposit scheme",
+    bins:"Mostly general waste; separation is rare",water:"Drink bottled water",
+    paper:"Cruising permits are hard to obtain and visits by yacht are uncommon",
+    tip:"Arrange everything through an agent well in advance"},
+  ma:{n:"Morocco",cur:"Dirham (MAD) — cannot be taken out",emg:"19 police · 15 ambulance",
+    wx:"Coast radio after an announcement on ch 16; also NAVTEX (Tangier)",plug:"Type C/E · 230 V",
+    shops:"Marjane, Carrefour, Acima, BIM",
+    dep:"No deposit scheme",
+    bins:"Mostly general waste; a few plastic and paper points in larger towns",water:"Drink bottled water",
+    paper:"Mediterranean marinas: Tanger Med, Marina Smir, Al Hoceima, Saïdia. Clearance is straightforward",
+    tip:"Markets beat supermarkets for produce — and haggling is expected"},
+  gi:{n:"Gibraltar",cur:"Gibraltar pound (GIP) = GBP; euros accepted at poor rates",emg:"112 · 190 marine rescue",
+    wx:"Gibraltar Radio and the Spanish network cover the Strait; listen on ch 16",plug:"Type G (UK 3-pin) · 240 V",
+    shops:"Morrisons, Eroski, Sainsbury's local",
+    dep:"No deposit scheme",
+    bins:"UK-style: blue = dry recyclables · glass banks around town · grey = everything else",water:"Tap water safe",
+    paper:"Duty-free fuel and spirits — the classic place to top up before heading east",
+    tip:"The runway crossing closes for flights; allow extra time on foot"}
+};
+/* In an emergency you shouldn't be retyping a number — split the line into dialable chips. */
+
+/* ---- bins: show the actual colours, since that's what you're looking for at the recycling island ---- */
+const BIN_COLOURS={yellow:"#E8B93B",blue:"#3B72C4",green:"#3E8E52",brown:"#8A5A33",grey:"#8A9A96",
+  gray:"#8A9A96",black:"#3A4644",white:"#FFFFFF",orange:"#E07B2C",red:"#C4453B"};
+function binRows(text){
+  const parts=String(text||"").split("·").map(s=>s.trim()).filter(Boolean);
+  const rows=parts.map(p=>{
+    const eq=p.indexOf("=");
+    if(eq===-1) return `<span class="bin-note">${esc(p)}</span>`;
+    const label=p.slice(0,eq).trim(), what=p.slice(eq+1).trim();
+    const key=Object.keys(BIN_COLOURS).find(c=>label.toLowerCase().includes(c));
+    const col=key?BIN_COLOURS[key]:null;
+    return `<span class="bin">
+      <i class="swatch" style="background:${col||"#DCE5E2"};${key==="white"?"border-color:#C9D6D2":""}"></i>
+      <b>${esc(label)}</b><span>${esc(what)}</span></span>`;
+  });
+  return `<span class="bins">${rows.join("")}</span>`;
+}
+/* ---- weather: pull the times and channels out so they can be scanned ---- */
+function wxRows(text){
+  const lines=String(text||"").split(". ").map(s=>s.trim()).filter(Boolean)
+    .map(s=>s.replace(/\.$/,""));
+  return `<span class="wx">${lines.map(l=>{
+    let h=esc(l);
+    h=h.replace(/\b(\d{1,2}:\d{2})\b/g,'<b class="tag time">$1</b>');
+    h=h.replace(/\bch\.? ?(\d{1,2}(?:\/\d{1,2})*)/gi,'<b class="tag ch">ch $1</b>');
+    h=h.replace(/\bNAVTEX\b/g,'<b class="tag">NAVTEX</b>');
+    return `<span class="wx-line">${h}</span>`;
+  }).join("")}</span>`;
+}
+
+function emergencyChips(text){
+  const parts=String(text).split("·").map(s=>s.trim()).filter(Boolean);
+  const out=parts.map(p=>{
+    const m=p.match(/(\+?[\d][\d\s]{1,14}\d|\b\d{2,4}\b)/);
+    if(!m) return `<span class="echip plain">${esc(p)}</span>`;
+    const num=m[1].replace(/\s+/g,"");
+    const label=p.replace(m[1],"").replace(/[()]/g,"").trim();
+    // VHF channels aren't phone numbers
+    if(/vhf|ch\b|channel/i.test(p)) return `<span class="echip plain">${esc(p)}</span>`;
+    return `<a class="echip" href="tel:${esc(num)}">${esc(num)}${label?`<i>${esc(label)}</i>`:""}</a>`;
+  });
+  return `<span class="echips">${out.join("")}</span>`;
+}
+function tepaiEstimate(m){
+  if(!m||m<=7) return null;
+  if(m<=8)  return "€16 per month";
+  if(m<=10) return "€25 per month";
+  if(m<=12) return "€33 per month";
+  return "about €"+Math.round(m*8)+" per month (€8 per metre)";
+}
+
 const DATA=[
 {
   id:"trip", tab:"Trip", title:"Trip details", type:"trip",
@@ -267,7 +646,7 @@ const DATA=[
   intro:"From arrival day to check-out. Times are a guide and depend on the sailing area and charter company.",
   sections:[
     {t:"Skipper briefing", when:"marina café, around 11:00", items:[
-      "Meet the other skippers in the flotilla","Weather for the week and rough route","Contact with local partners"]},
+      {x:"Skippers' briefing, if the trip has one", n:"Flotillas and rallies usually start with one."},"Weather for the week and rough route","Local contacts and who to call"]},
     {t:"Paperwork", when:"charter company office, around 12:00", items:[
       "Stay professional and friendly with the charter company","Check the crew list, sign the paperwork",
       "Chart briefing (long-distance destinations only)"]},
@@ -275,7 +654,7 @@ const DATA=[
       {x:"Work through the crew briefing list"},"Agree the shopping run","Store luggage at the charter base or the café"]},
     {t:"Boat check-in", when:"if possible by 17:00", items:[{x:"Work through the boat handover list"}]},
     {t:"Welcome the crew aboard", items:[
-      {x:"Hoist the flotilla flag", n:"If you have one: under the spreader on the starboard side."},"Put some music on"]},
+      {x:"Hoist the courtesy flag", n:"Starboard spreader. Any club or rally flag goes below it."},"Put some music on"]},
     {t:"Stow the provisions", items:[{x:"Mind the gangway"},"Sort in whatever the previous crew left behind"]},
     {t:"Boat and safety briefing", items:[{x:"Work through the safety list"}]},
     {t:"Explain before first use", items:[
@@ -286,16 +665,7 @@ const DATA=[
     {t:"First three days", items:["Man-overboard under sail, if it fits","Coastal navigation, if there's interest","Basic knots, if there's interest"]},
     {t:"By day three at the latest", items:["Feedback round with the crew"]},
     {t:"Check-out", when:"evening before the last day", items:[
-      "Fill the diesel tank completely","Empty the holding tanks and leave them open","Come in under good seamanship",
-      {x:"Prepare and hand out mileage certificates", n:"Filled in by the skipper, for the whole crew."},
-      "Check out with the charter company","Settle small damages from the boat kitty",
-      {x:"Report larger or disputed damage to the organiser", n:"Contacts are on the Emergency tab."},
-      {x:"Empty the fridge", n:"Switch it off the next morning to defrost."},
-      {x:"Clear out everything", n:"Including the spice locker, the bilge and every locker and compartment."},
-      {x:"Bin open food", n:"Pass on only sealed items and spices that don't need cooling."},
-      {x:"Gather leftovers on the saloon table", n:"List them and leave the list aboard."},
-      "Wash up, rubbish ashore, bed linen and towels in one pile in the saloon",
-      {x:"Brief the next skipper", n:"Problems with the boat, urgent repairs, a photo of the leftovers list."}]}
+      {x:"Work through the check-out list", n:"It starts the evening before — fuel, tanks, cleaning and the damage walk-round."}]}
   ]
 },
 {
@@ -473,14 +843,195 @@ const DATA=[
   ]
 },
 {
+  id:"packing", tab:"Packing", title:"Packing list", type:"check",
+  intro:"Your own kit, not the boat's. Ticks here stay on this device, so every crew member can work through their own copy.",
+  sections:[
+    {t:"Bags", tips:["Soft bags only. There is nowhere on a yacht to stow a hard suitcase, and charter companies will ask you to leave it ashore."],
+     items:[
+      {x:"Soft duffel or holdall", n:"Collapses flat and slides under a bunk."},
+      {x:"Small dry bag", n:"For the dinghy run — phone, wallet, camera."},
+      "Day bag for shopping and shore trips",
+      {x:"A few dry sacks or zip bags", n:"Everything below deck eventually meets water."}]},
+    {t:"Getting there", tips:["Check what has to go in hold luggage before you pack it — knives and multitools are the usual casualties."],
+     items:[
+      "Flight or ferry tickets, downloaded offline",
+      {x:"Transfer to the marina booked", n:"Charter bases are often well outside town and taxis dry up on Saturdays."},
+      {x:"Knife and multitool in hold luggage", n:"They will be taken off you at security otherwise."},
+      {x:"Liquids under 100 ml in cabin bags", n:"Sunscreen is the one everyone forgets."},
+      {x:"Offline maps of the area downloaded", n:"Do it at home, not on marina wifi."},
+      {x:"Photos of passport, licence and insurance in your phone", n:"Saves a scramble if the originals go missing."},
+      "Return transfer and flight times noted somewhere the crew can see"]},
+    {t:"Papers and money", items:[
+      {x:"Sailing licence and radio certificate", n:"The charter company will want to see the originals."},
+      "Passport or ID card",
+      "Charter confirmation and booking reference",
+      {x:"Travel and personal accident insurance", n:"Check it actually covers sailing."},
+      "Skipper liability insurance, if you carry it",
+      {x:"EHIC or equivalent health card", n:"For EU waters."},
+      {x:"Cash for the boat kitty and deposits", n:"Some marinas and fuel docks are cash only."},
+      "Bank card that works abroad",
+      {x:"Crew list with passport numbers", n:"Needed at check-in and for clearing in."},
+      "Emergency contacts for every crew member"]},
+    {t:"Skipper's kit", items:[
+      {x:"Phone with offline charts downloaded", n:"Download before you leave — not in the marina café."},
+      "Power bank and charging cables",
+      {x:"Handheld VHF, if you have one", n:"Worth it for the dinghy and for man-overboard."},
+      {x:"Head torch with a red mode", n:"Red keeps your night vision."},
+      "Notebook and pencils for the log",
+      {x:"Dividers and a plotter", n:"Charter boats often have neither, or broken ones."},
+      "Pilot book for the area",
+      {x:"Rigging knife and a shackle key", n:"On a lanyard, in your pocket."},
+      {x:"Small multitool", n:"Hold luggage only — it will be taken off you at security."},
+      "Waterproof phone case or pouch",
+      {x:"Mileage certificate forms", n:"Easier printed than improvised on the last night."}]},
+    {t:"On deck", items:[
+      {x:"Non-marking deck shoes", n:"Charter companies check. Black soles leave marks and cost you the deposit."},
+      "Sailing gloves",
+      {x:"Sun hat with a cord", n:"Without a cord it goes overboard on day one."},
+      {x:"Sunglasses with a retainer", n:"Same reasoning."},
+      {x:"High-factor sunscreen", n:"Reef-safe if you can — you'll be swimming in it."},
+      "Lip balm with sun protection",
+      {x:"Spray jacket or light foulies", n:"Even in the Med, a night passage gets cold and wet."},
+      "Fleece or midlayer",
+      {x:"Your own lifejacket, if you prefer one", n:"Boat ones fit badly and smell of the last crew."},
+      {x:"Reef or water shoes", n:"Most Adriatic and Greek beaches are rock and urchins, not sand."},
+      {x:"Rash vest or UV top for swimming", n:"Cheaper than reapplying sunscreen all week."}]},
+    {t:"Clothes", tips:["Everyone overpacks. You wear swimwear and a t-shirt for six days and one decent outfit for one dinner."],
+     items:[
+      "T-shirts and quick-dry tops",
+      {x:"One long-sleeved light top", n:"Sun protection beats sunscreen on a long leg."},
+      "Shorts",
+      "Light trousers for the evening",
+      {x:"Two sets of swimwear", n:"One is always still wet."},
+      "Something presentable for a dinner ashore",
+      "Underwear and socks",
+      {x:"Fleece or hoodie for the evening", n:"It drops more than you expect after sunset."}]},
+    {t:"Washing and sleeping", items:[
+      {x:"Quick-dry travel towel", n:"Cotton towels never dry aboard."},
+      {x:"Biodegradable soap and shampoo", n:"Some of it ends up in the sea whatever you do."},
+      "Toothbrush and toiletries",
+      {x:"Earplugs", n:"Halyards, snoring, and the anchor chain at 03:00."},
+      {x:"Sleeping bag liner or a light sheet", n:"Ask whether bedding is included before packing one."},
+      "Eye mask"]},
+    {t:"Health", items:[
+      {x:"Seasickness tablets", n:"Take them before you need them, not after."},
+      "Personal medication, with a little spare",
+      "Plasters and blister plasters",
+      {x:"Antiseptic and small dressings", n:"Rope burns and grazes are the usual injuries."},
+      "Painkillers",
+      {x:"Aloe or after-sun", n:"Someone always catches it on day one."},
+      "Insect repellent",
+      {x:"Spare glasses or contact lenses", n:"Losing a lens overboard ends your week otherwise."},
+      {x:"Fine tweezers and a sterile needle", n:"Sea urchin spines. Croatian and Greek rocks are full of them and nobody packs for it."},
+      {x:"Antihistamine tablets and cream", n:"Jellyfish, mosquitoes and whatever you brush against swimming."},
+      {x:"Rehydration salts", n:"Heat, beer and a long passage add up faster than people expect."},
+      {x:"Ginger sweets or seasickness bands", n:"For anyone who won't take tablets."}]},
+    {t:"Between the boat", tips:["Agree who brings what in the crew chat. Nine people each bringing a speaker and nobody bringing tape is the usual outcome."],
+     items:[
+      {x:"A decent sharp knife", n:"Charter galley knives are famously blunt."},
+      {x:"Rigging or duct tape", n:"Fixes more things aboard than anything else you can carry."},
+      {x:"WD-40 or a small penetrating spray", n:"Seized shackles, stiff locks, a winch that will not turn."},
+      "Cable ties and a few spare shackles",
+      {x:"A few metres of spare light line", n:"Flag halyards, fender lanyards, the laundry line, lashing the dinghy."},
+      {x:"Bungee cords or short lengths of line", n:"For lashing the dinghy, the fenders and everything else."},
+      {x:"Speaker for the cockpit", n:"One is plenty."},
+      "Binoculars",
+      {x:"Moka pot or cafetière", n:"If nobody wants instant coffee for a week."},
+      {x:"Small laundry detergent", n:"A sink wash mid-week beats packing double the clothes."},
+      {x:"Laundry line and pegs", n:"Light line between the backstay and a stanchion. Pegs, or the washing ends up in the water."},
+      {x:"Solar or USB cockpit lantern", n:"Evenings at anchor without draining the boat batteries."},
+      {x:"A couple of clip-on LED lights", n:"The galley and heads are dim at night on most charter boats."},
+      {x:"Spare AA and AAA batteries", n:"For torches and whatever aboard has run flat."},
+      {x:"Head torches for the crew", n:"There are never enough aboard."},
+      {x:"Games or cards", n:"For the evening at anchor."}]},
+    {t:"Nice to have", items:[
+      "Book or e-reader",
+      {x:"Travel adapter", n:"Malta, Cyprus and Gibraltar use UK plugs; the rest of the Med does not."},
+      {x:"12 V USB adapter for the cigarette socket", n:"Shore power only works alongside. At anchor the 12 V socket is all you have."},
+      {x:"A long charging cable", n:"The only socket is usually at the nav station, nowhere near a bunk."},
+      {x:"Phone lanyard or float", n:"Phones go overboard from dinghies, reliably."},
+      "Camera",
+      {x:"Reusable water bottle", n:"Cuts the plastic you carry aboard enormously."},
+      "Snorkel and mask"]}
+  ]
+},
+{
+  id:"checkout", tab:"Check-out", title:"Boat check-out", type:"check",
+  intro:"Handing the boat back. Start the evening before — check-out always takes longer than anyone expects, and the deposit rides on it.",
+  sections:[
+    {t:"The evening before", tips:["Almost everything here can be done the night before. Leaving it to the morning is how crews miss flights."],
+     items:[
+      {x:"Confirm the check-out time with the base", n:"And whether they want the boat stern-to or alongside."},
+      {x:"Book a slot at the fuel dock if there is one", n:"In season the queue at 08:00 is long."},
+      "Settle the boat kitty and pay anyone back",
+      {x:"Start cleaning while the crew are still aboard", n:"Everyone helps the night before. Nobody helps at 07:00.", clean:true},
+      "Agree who does what in the morning"]},
+    {t:"Fuel, water and tanks", items:[
+      {x:"Fill the diesel tank completely", n:"Keep the receipt — charter companies check the level and the timestamp."},
+      "Fill the water tanks",
+      {x:"Empty the holding tanks", n:"Offshore where it's allowed, or at a pump-out. Leave the valves as the base instructed."},
+      "Note the engine hours"]},
+    {t:"Galley and fridge", items:[
+      {x:"Empty the fridge", n:"Switch it off the night before so it defrosts."},
+      {x:"Wipe out the fridge and leave the lid propped", n:"A closed damp fridge greets the next crew with mould.", clean:true},
+      {x:"Wash, dry and stow everything", clean:true},
+      "Check the cutlery and crockery against the inventory",
+      {x:"Bin open food, keep sealed items", n:"Spices and unopened packs can be passed on."},
+      {x:"Gather leftovers on the saloon table", n:"List them and leave the list aboard for the next crew."},
+      "Turn the gas off at the bottle"]},
+    {t:"Below deck", items:[
+      {x:"Clear every locker and compartment", n:"Including the spice locker, the bilge and under the bunks."},
+      {x:"Clean the heads and showers", clean:true},
+      "Drain the shower sumps",
+      {x:"Sweep and wipe the saloon and cabins", clean:true},
+      {x:"Bedding and towels in one pile in the saloon", n:"Unless the base asked for something else."},
+      "Charge the batteries or leave on shore power",
+      {x:"Personal gear out of the nav station", n:"Chargers and cables live there and get left behind."}]},
+    {t:"On deck", items:[
+      "Sails furled and covers on",
+      "Sheets and halyards coiled and tidy",
+      "Fenders and mooring lines as the base wants them",
+      {x:"Rinse the deck and cockpit with fresh water", n:"Salt and sunscreen film is what they notice first.", clean:true},
+      {x:"Anchor and chain washed down", n:"Mud in the locker is a common deduction."},
+      {x:"Dinghy deflated or hoisted, as instructed", n:"Rinse it and let it dry if you can."},
+      {x:"Outboard flushed, drained and locked", n:"Run the fuel out of the carburettor if the base asks."},
+      "Bimini and sprayhood stowed or secured",
+      "Courtesy and any club flags down",
+      "Rubbish ashore — nothing left in a cockpit locker"]},
+    {t:"Damage and paperwork", tips:["Report everything, however small. Damage found after you leave is always more expensive than damage you declared."],
+     items:[
+      {x:"Walk the boat with the base, four eyes", n:"Same as check-in: go round together."},
+      {x:"Declare every bit of damage, however minor", n:"With the photos you took at check-in for comparison."},
+      {x:"Report larger damage to your organiser or insurer too", n:"Contacts are on the Emergency tab."},
+      "Settle small damages from the kitty if that was agreed",
+      "Complete the log book",
+      {x:"Hand out the mileage certificates", n:"Filled in and signed by you, for the whole crew."},
+      "Go through the inventory with the base",
+      {x:"Get the deposit release in writing", n:"Or a note of what was deducted and why."},
+      "Hand back keys and papers",
+      {x:"Sign the check-out form", n:"Read it before signing — it's the record of the boat's condition."}]},
+    {t:"Before you walk away", items:[
+      {x:"Sweep every bunk, locker and shelf", n:"Phones, chargers, passports and one sock, every single time."},
+      "Heads and shower checked for toiletries",
+      "Everyone has passport, wallet and phone",
+      {x:"Brief the next skipper if they're there", n:"Boat quirks, anything broken, and a photo of the leftovers list."},
+      "Transfer or taxi confirmed",
+      {x:"Group photo before the crew scatters", n:"Nobody regrets this one."}]}
+  ]
+},
+{
+  id:"kitty", tab:"Kitty", title:"Boat kitty", type:"kitty",
+  intro:"What everyone put in, what's been spent, and who owes what at the end. Split evenly across the crew."
+},
+{
   id:"emergency", tab:"Emergency", title:"After an accident", type:"check", contacts:true,
   intro:"Stay calm. Keep to the order of the calls.",
   sections:[
     {t:"Collision with another boat — who to call", items:[
-      {x:"Call the organiser or flotilla lead", n:"If they don't pick up, try the backup contact."},
+      {x:"Call your first emergency contact", n:"Trip organiser, flotilla lead, or whoever you set on this tab. If they do not answer, try the backup."},
       "Charter company","Harbour master or harbour police"]},
     {t:"Important", warn:"Never sign any kind of admission of fault, or any confirmation on the spot that you were involved in the accident. For the insurance to hold, the incident has to be reported to an official body and you need written confirmation of that report.", items:[
-      "Send photos and the accident report to the organiser straight away","Stay calm",
+      "Send photos and the accident report to your organiser or insurer straight away","Stay calm",
       "Not easy in the moment, but stay friendly with the skipper and crew of the other boat"]},
     {t:"Exchange insurance details", items:["Insurance company","Address of the insurer","Phone number of the insurer",
       {x:"Policy number", n:"Ask whether you may photograph the policy."}]},
@@ -494,7 +1045,7 @@ const DATA=[
       {x:"Mind the angle", n:"It has to be possible to tell afterwards whether the damage claimed could have been caused by the collision at all — for instance at what height your anchor sits and at what height the damage is."},
       "Send photos and the report immediately"]},
     {t:"Damage without a third party (quay, pontoon)", items:[
-      "Call the organiser or flotilla lead","Inform the harbour master or the owner of what you hit",
+      "Call your first emergency contact","Inform the harbour master or the owner of what you hit",
       "Inform the charter company","Stay calm","Write the accident report and have every crew member sign it",
       "Photograph the pontoon or quay","Photograph the boat",
       {x:"Photograph the conditions", n:"Was the accident perhaps unavoidable given the conditions on site?"}]}
@@ -505,16 +1056,33 @@ const DATA=[
 /* =================== STATE =================== */
 const KEY="skipper-trip-v3";
 let S={done:{},own:{},custom:[],trip:{boat:"",marina:"",start:"",end:""},
-       crew:[],crewManual:9,daysManual:8,c:{n1:"",p1:"",n2:"",p2:"",mail:""},meals:{},customRecipes:[],spoonKey:"65f4311621d041f5a37b35d5345fde6d",tripCode:"",seeded:false};
+       crew:[],crewManual:9,daysManual:8,c:{n1:"",p1:"",n2:"",p2:"",mail:""},meals:{},customRecipes:[],spoonKey:"65f4311621d041f5a37b35d5345fde6d",tripCode:"",seeded:false,hidden:{},kitty:{cur:"€",contrib:{},expenses:[]},aliases:{},dups:{}};
 let active=0, query="", collapsed={};
 let liveSuggestions=[], liveLoading=false, liveError="";
 let spoonResults=[], spoonLoading=false, spoonError="";
-let syncingRemote=false, fbStatus="";
+let syncingRemote=false, fbStatus="", editMode=false, hideTicked=false;
+let expandedCrew=new Set(), boatOpen=false, notesOpen=false;
+/* Undo keeps one snapshot of the whole state, taken just before anything destructive. */
+let undoSnap=null, undoTimer=null;
+function pushUndo(label){
+  undoSnap=JSON.stringify(S);
+  const t=$("toast"), m=$("toastMsg");
+  if(t&&m){ m.textContent=label; t.hidden=false; }
+  clearTimeout(undoTimer);
+  undoTimer=setTimeout(hideToast,8000);
+}
+function hideToast(){ const t=$("toast"); if(t) t.hidden=true; undoSnap=null; }
+function doUndo(){
+  if(!undoSnap) return;
+  try{ S=JSON.parse(undoSnap); }catch(e){ return; }
+  undoSnap=null; clearTimeout(undoTimer); hideToast();
+  save(); render();
+}
 let draftRecipe={id:"",name:"",type:"dinner",url:"",blurb:"",serves:6,diets:[],ingr:[{n:"",q:"",u:"piece"}]};
 function blankDraft(){ draftRecipe={id:"",name:"",type:"dinner",url:"",blurb:"",serves:6,diets:[],ingr:[{n:"",q:"",u:"piece"}]}; }
 function editRecipe(id){
   const r=(S.customRecipes||[]).find(x=>x.id===id); if(!r) return;
-  const serves=r.serves||1;
+  const serves=numIn(r.serves)||1;
   draftRecipe={
     id:r.id, name:r.name||"", type:r.type||"dinner", url:r.url||"", blurb:r.blurb||"",
     serves, diets:(r.diets||[]).slice(),
@@ -550,7 +1118,7 @@ async function load(){
     S.seeded=true;
   }
 }
-let tmr, pushTmr;
+let tmr, pushTmr, pendingPush=false;
 function save(){
   clearTimeout(tmr);
   tmr=setTimeout(async()=>{
@@ -558,10 +1126,11 @@ function save(){
   },250);
   // Push to Firestore on a longer delay — one write per pause, not per keystroke.
   if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
+    pendingPush=true;
     clearTimeout(pushTmr);
     pushTmr=setTimeout(async()=>{
-      try{ await fbPush(); }
-      catch(e){ fbStatus="Sync error — check your connection."; }
+      try{ await fbPush(); pendingPush=false; }
+      catch(e){ pendingPush=false; fbStatus="Sync error — check your connection."; }
     },1500);
   }
 }
@@ -574,11 +1143,48 @@ const $=id=>document.getElementById(id);
 const nf=n=>n.toLocaleString("en-GB",{maximumFractionDigits:1});
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-");
 
+/* European keyboards give "13,8" — accept comma or dot everywhere a number is typed. */
+function numIn(v){
+  if(typeof v==="number") return v;
+  const s=String(v==null?"":v).trim().replace(/\s/g,"").replace(",",".");
+  const x=parseFloat(s);
+  return isNaN(x)?NaN:x;
+}
 function crewCount(){ return S.crew.length || S.crewManual; }
 function tripDays(){
   const {start,end}=S.trip;
   if(start&&end){ const d=Math.round((new Date(end)-new Date(start))/86400000)+1; if(d>0&&d<60) return d; }
   return S.daysManual;
+}
+/* ---- who is actually aboard on a given day ----
+   On the first day half the crew is often still in transit, so cooking and provisioning
+   for the full number wastes food. Anyone without an arrival time counts as aboard. */
+function crewAboardOn(dayIdx){
+  const n=crewCount();
+  if(!S.crew.length || !S.trip.start) return n;
+  const day=new Date(S.trip.start);
+  if(isNaN(day)) return n;
+  day.setDate(day.getDate()+dayIdx);
+  day.setHours(20,0,0,0);                       // by the evening meal
+  let c=0;
+  S.crew.forEach(m=>{
+    if(!m.arrival){ c++; return; }              // unknown — assume they're there
+    const a=new Date(m.arrival);
+    if(isNaN(a) || a<=day) c++;
+  });
+  return Math.max(1,c);
+}
+function personDays(){
+  const d=tripDays();
+  let t=0; for(let i=0;i<d;i++) t+=crewAboardOn(i);
+  return t;
+}
+/* how much of a full-crew trip this actually is — 1 when everyone is there all week */
+function presenceFactor(){
+  const n=crewCount(), d=tripDays();
+  if(!n||!d) return 1;
+  const f=personDays()/(n*d);
+  return (f>0&&f<=1)?f:1;
 }
 function dietCount(k){ return S.crew.filter(m=>(m.diet||[]).includes(k)).length; }
 function allergyList(){
@@ -612,8 +1218,12 @@ function groups(){
   });
   return g;
 }
+const WHOLE_UNITS=new Set(["eggs","egg","limes","lime","lemons","loaves","loaf","rolls","roll",
+  "pegs","piece","pieces","bulbs","bulb","heads","head","tins","tin","jars","jar","packs","pack",
+  "tubs","tub","bottles","bottle","cans","can","cartons","carton","bags","bag","bars","bar","canisters"]);
 function rnd(v,u){
   if(u==="g") return Math.max(50,Math.round(v/50)*50);
+  if(WHOLE_UNITS.has((u||"").toLowerCase())) return Math.max(1,Math.round(v));
   if(v>=20) return Math.round(v/2)*2;
   if(v>=4)  return Math.round(v);
   return Math.round(v*2)/2;
@@ -629,22 +1239,24 @@ function qtyFor(it){
 
   if(it.r){
     let lo=0,hi=0;
-    it.r.forEach(t=>{ const c=g[t.g]||0; lo+=c*d*t.d; hi+=c*d*(t.d2||t.d); });
+    const pf=presenceFactor();
+    it.r.forEach(t=>{ const c=g[t.g]||0; lo+=c*d*t.d*pf; hi+=c*d*(t.d2||t.d)*pf; });
     lo*=catF; hi*=catF;
     const why=it.r.filter(t=>t.g!=="crew"&&(g[t.g]||0)>=0.5)
                   .map(t=>`${Math.round(g[t.g])} ${GLABEL[t.g]||t.g}`);
     if(why.length) notes.unshift(why.join(", "));
     if(lo<0.4) return {t:"not needed", free:true, none:true, notes};
     const a=rnd(lo,it.u), b=hi>lo*1.15?rnd(hi,it.u):null;
-    return {t:nf(a)+(b&&b>a?"–"+nf(b):"")+" "+it.u, notes};
+    return {t:nf(a)+(b&&b>a?"–"+nf(b):"")+" "+it.u, notes, lo, hi, unit:it.u};
   }
   if(it.q==null) return {t:catF===0?"not needed":(it.free||""), free:true, none:catF===0, notes};
   if(catF===0) return {t:"not needed", free:true, none:true, notes:[it.cat==="meat"?"nobody eats meat":"all vegan"].concat(notes)};
   if(it.cat==="meat"&&catF<1) notes.unshift(`${Math.round(n-g.meat)} of ${n} don't eat meat`);
   if(it.cat==="dairy"&&vegans) notes.unshift(`${vegans} vegan`);
-  const mult=(it.fix?1:(n/9)*(d/8))*catF;
-  const a=rnd(Math.max(it.q*mult,0.5),it.u), b=it.q2?rnd(it.q2*mult,it.u):null;
-  return {t:nf(a)+(b&&b>a?"–"+nf(b):"")+" "+it.u, notes};
+  const mult=(it.fix?1:(n/9)*(d/8)*presenceFactor())*catF;
+  const lo=Math.max(it.q*mult,0.5), hi=it.q2?it.q2*mult:lo;
+  const a=rnd(lo,it.u), b=it.q2?rnd(hi,it.u):null;
+  return {t:nf(a)+(b&&b>a?"–"+nf(b):"")+" "+it.u, notes, lo, hi, unit:it.u};
 }
 function allergyHit(name){
   const words=[];
@@ -657,9 +1269,15 @@ function allergyHit(name){
 }
 function listIds(l){
   const out=[];
-  (DATA[l].sections||[]).forEach((sec,si)=>sec.items.forEach((_,ii)=>out.push(idOf(l,si,ii))));
-  if(DATA[l].type==="shop"){
-    S.custom.forEach(c=>out.push("custom."+c.id));
+  const shop=DATA[l].type==="shop";
+  const cleanSkip=DATA[l].id==="checkout" && S.trip.cleaningBooked;
+  (DATA[l].sections||[]).forEach((sec,si)=>sec.items.forEach((raw,ii)=>{
+    const id=idOf(l,si,ii);
+    if(cleanSkip&&norm(raw).clean) return;
+    if(!(shop&&S.hidden&&S.hidden[id])) out.push(id);
+  }));
+  if(shop){
+    (S.custom||[]).forEach(c=>out.push("custom."+c.id));
     mealExtras().items.forEach(it=>out.push("mealx."+slug(it.n)));
   }
   return out;
@@ -710,9 +1328,9 @@ function parseIngredientLine(line){
     const qs=m[1].trim();
     if(qs.indexOf("/")!==-1){
       const parts=qs.split(/\s+/);
-      if(parts.length===2){ const ab=parts[1].split("/"); qty=parseFloat(parts[0])+parseFloat(ab[0])/parseFloat(ab[1]); }
-      else { const ab=qs.split("/"); qty=parseFloat(ab[0])/parseFloat(ab[1]); }
-    } else qty=parseFloat(qs);
+      if(parts.length===2){ const ab=parts[1].split("/"); qty=numIn(parts[0])+numIn(ab[0])/numIn(ab[1]); }
+      else { const ab=qs.split("/"); qty=numIn(ab[0])/numIn(ab[1]); }
+    } else qty=numIn(qs);
     rest=m[2].trim();
   }
   const words=rest.split(/\s+/);
@@ -730,8 +1348,158 @@ function rndExtra(v,u){
   if(u==="pinch") return Math.max(1,Math.round(v));
   return Math.round(v*10)/10;
 }
+
+/* ---- turning recipe amounts into things you can actually put in a trolley ----
+   Recipes think in pinches, cloves and half-tins. Shops sell packs. This maps one to
+   the other: convert to a base unit, then round up to whole packs. Staples that are
+   already on the standing pantry list don't become separate lines at all. */
+const STAPLE_RE=/\b(salt|pepper|olive oil|sunflower oil|vinegar|sugar|flour|stock|oregano|basil|thyme|rosemary|herb|paprika|cumin|curry powder|chilli|chili|baking powder|soy sauce|mustard|mayonnaise)\b/i;
+const SMALL_UNITS=new Set(["pinch","dash","tsp","teaspoon","tbsp","tablespoon","sprig","splash"]);
+/* to a base unit: g for solids, ml for liquids */
+const TO_BASE={ g:1, kg:1000, ml:1, l:1000, L:1000, oz:28.35, lb:453.6, cup:240 };
+/* smallest sensible pack in the shops, by ingredient */
+const PACKS=[
+  [/risotto rice|arborio/i,      {base:"g",  size:1000, label:"1 kg bag"}],
+  [/\brice\b/i,                  {base:"g",  size:1000, label:"1 kg bag"}],
+  [/pasta|penne|fusilli|spaghetti|orzo/i, {base:"g", size:500, label:"500 g pack"}],
+  [/couscous/i,                  {base:"g",  size:500,  label:"500 g pack"}],
+  [/lentils/i,                   {base:"g",  size:500,  label:"500 g pack"}],
+  [/oats/i,                      {base:"g",  size:500,  label:"500 g pack"}],
+  [/feta|halloumi/i,             {base:"g",  size:200,  label:"200 g pack"}],
+  [/grana|parmesan|hard cheese/i,{base:"g",  size:200,  label:"200 g piece"}],
+  [/mozzarella/i,                {base:"g",  size:125,  label:"125 g ball"}],
+  [/creme fraiche|cream/i,       {base:"g",  size:200,  label:"200 g tub"}],
+  [/butter/i,                    {base:"g",  size:250,  label:"250 g pack"}],
+  [/yoghurt|yogurt/i,            {base:"g",  size:500,  label:"500 g tub"}],
+  [/hummus/i,                    {base:"g",  size:200,  label:"200 g tub"}],
+  [/milk/i,                      {base:"ml", size:1000, label:"1 L"}],
+  [/tomatoes|courgette|zucchini|aubergine|carrot|potato|onion|pepper|apple|banana|orange|lemon|lime/i,
+                                 {base:"g",  size:1000, label:"kg", loose:true}],
+  [/falafel/i,                   {base:"pc", size:6,    label:"pack of 6"}],
+  [/wrap|flatbread|tortilla/i,   {base:"pc", size:6,    label:"pack of 6"}],
+  [/puff pastry|pastry/i,        {base:"pc", size:1,    label:"roll"}],
+  [/garlic/i,                    {base:"pc", size:10,   label:"bulb (about 10 cloves)"}],
+  [/bread|loaf/i,                {base:"pc", size:1,    label:"loaf"}],
+  [/olives|sun-dried|dried tomato/i, {base:"pc", size:1, label:"jar"}]
+];
+/* countable things you buy one at a time */
+const COUNTABLE=new Set(["tin","can","jar","tub","tube","pack","piece","loaf","head","bunch","bottle","clove","ball","roll"]);
+function packRule(name){ for(const [re,p] of PACKS) if(re.test(name)) return p; return null; }
+function toBase(amt,unit){
+  const u=(unit||"").toLowerCase();
+  if(u==="clove"||u==="piece"||u==="pc") return {v:amt,base:"pc"};
+  const f=TO_BASE[u]!==undefined?TO_BASE[u]:(TO_BASE[unit]!==undefined?TO_BASE[unit]:null);
+  if(f===null) return null;
+  const base=(u==="ml"||u==="l"||u==="cup")?"ml":"g";
+  return {v:amt*f, base};
+}
+/* Returns what to actually buy, plus what the recipes needed, so you can sanity-check it. */
+function toShoppingQty(name,amt,unit){
+  const u=(unit||"").toLowerCase();
+  if(STAPLE_RE.test(name)) return {staple:true, text:"on your pantry list", need:""};
+  if(SMALL_UNITS.has(u))   return {staple:true, text:"a small amount", need:"recipes need "+nf(Math.round(amt*10)/10)+" "+unit};
+
+  const rule=packRule(name), conv=toBase(amt,u);
+
+  if(rule && conv && (rule.base===conv.base || (rule.base==="pc"&&conv.base==="pc"))){
+    const packs=Math.max(1,Math.ceil(conv.v/rule.size - 0.001));
+    const needTxt="recipes need "+(conv.base==="pc"
+      ? nf(Math.round(conv.v*10)/10)+(u==="clove"?" cloves":"")
+      : (conv.v>=1000?nf(Math.round(conv.v/100)/10)+" "+(conv.base==="ml"?"L":"kg")
+                     :Math.round(conv.v)+" "+conv.base));
+    if(rule.loose){
+      const kg=Math.max(0.5,Math.round(conv.v/100)/10);
+      return {text:nf(kg)+" kg", need:needTxt};
+    }
+    return {text:packs+" × "+rule.label, need:needTxt};
+  }
+  if(COUNTABLE.has(u)){
+    const whole=Math.max(1,Math.ceil(amt-0.001));
+    const plural=whole>1?(u==="bunch"?"bunches":u+"s"):u;
+    return {text:whole+" "+plural, need:amt%1>0.05?"recipes need "+nf(Math.round(amt*10)/10)+" "+u:""};
+  }
+  if(conv){
+    const v=conv.v;
+    const txt=v>=1000?nf(Math.round(v/100)/10)+" "+(conv.base==="ml"?"L":"kg"):Math.round(v)+" "+conv.base;
+    return {text:txt, need:""};
+  }
+  return {text:nf(Math.round(amt*10)/10)+" "+(unit||""), need:""};
+}
+
+
+/* ---- matching ingredients that are the same thing written differently ----
+   "Tomatoes", "tomato", "2 ripe tomatoes" and "Cherry tomatoes" should be one line.
+   Qualifiers that change the product (dried, tinned, smoked) are deliberately kept. */
+const ING_SYN=[
+  [/\bzucchinis?\b/g,"courgette"],[/\beggplants?\b/g,"aubergine"],
+  [/\bgarbanzos?( beans?)?\b/g,"chickpeas"],[/\bbell peppers?\b/g,"pepper"],
+  [/\bcapsicums?\b/g,"pepper"],[/\bscallions?\b/g,"spring onion"],
+  [/\bcilantro\b/g,"coriander"],[/\byogh?urts?\b/g,"yoghurt"],
+  [/\bcourgettes\b/g,"courgette"],[/\bshrimps?\b/g,"prawns"],
+  [/\bminced? garlic\b/g,"garlic"],[/\bgarlic cloves?\b/g,"garlic"],
+  [/\bspring onions\b/g,"spring onion"],
+  // "feta cheese" and "feta" are the same shelf item; "cream cheese" is not "cream"
+  [/\b(feta|mozzarella|cheddar|parmesan|halloumi|goat'?s?|ricotta|gruyere) cheese\b/g,"$1"]
+];
+/* purely cosmetic words — safe to ignore when matching */
+const ING_DROP=new Set(["fresh","organic","large","small","medium","ripe","free-range","extra",
+  "good","quality","whole","raw","plain","natural","finely","roughly","thinly","peeled","washed",
+  "of","a","the","some","your","favourite","favorite","best"]);
+function singular(w){
+  if(w.length<4) return w;
+  if(/oes$/.test(w)) return w.slice(0,-2);
+  if(/ies$/.test(w)) return w.slice(0,-3)+"y";
+  if(/ss$/.test(w)) return w;
+  if(/s$/.test(w))  return w.slice(0,-1);
+  return w;
+}
+/* Automatic matching only handles the obvious cases. Anything arguable is left to you:
+   these two maps hold your decisions, and they sync to the crew like everything else. */
+function aliasMap(){ S.aliases=S.aliases||{}; return S.aliases; }
+function dupMap(){ S.dups=S.dups||{}; return S.dups; }
+function canonKey(name){
+  const c=canonIngredient(name), a=aliasMap();
+  let k=c, guard=0;
+  while(a[k] && a[k]!==k && guard++<6) k=a[k];   // follow a chain, but never loop
+  return k;
+}
+function canonIngredient(name){
+  let s=(name||"").toLowerCase().trim();
+  s=s.replace(/\([^)]*\)/g," ");             // "(tins)" etc
+  s=s.replace(/[.,;]/g," ");
+  s=s.replace(/^[\d\s\/-]+/,"");             // "2 ripe tomatoes" → "ripe tomatoes"
+  s=s.replace(/^(g|kg|ml|l|oz|lb|tsp|tbsp|cups?|tins?|cans?|jars?|packs?|cloves?|pieces?|bunch(es)?)\s+/,"");
+  ING_SYN.forEach(([re,to])=>{ s=s.replace(re,to); });
+  s=s.split(/\s+/).filter(w=>w&&!ING_DROP.has(w)).map(singular).join(" ");
+  return s.trim();
+}
+/* units that mean the same shelf item, so amounts can be added together */
+function unitClass(u){
+  u=(u||"").toLowerCase();
+  if(["g","kg","oz","lb"].includes(u)) return "mass";
+  if(["ml","l","cup","fl oz"].includes(u)) return "vol";
+  if(["piece","pc","clove","pcs",""].includes(u)) return "count";
+  if(["tin","can","tins","cans"].includes(u)) return "tin";
+  return u.replace(/s$/,"");
+}
+const CLASS_UNIT={mass:"g", vol:"ml", count:"piece", tin:"tin"};
+
 function mealExtras(){
   const map={}; let count=0; const n=crewCount(); const live=[];
+  const add=(name,qty,unit,from)=>{
+    const cls=unitClass(unit);
+    let amount=qty, u=CLASS_UNIT[cls]||unit;
+    if(cls==="mass"||cls==="vol"){
+      const c=toBase(qty,unit);
+      if(c){ amount=c.v; u=c.base; }
+    }
+    const key=canonKey(name)+"|"+cls;
+    if(!map[key]) map[key]={n:name, u, q:0, c:0, cls, from:[]};
+    if(from && map[key].from.indexOf(from)===-1) map[key].from.push(from);
+    // keep the shortest spelling as the label — usually the plainest
+    if(name.length<map[key].n.length) map[key].n=name;
+    map[key].q+=amount; map[key].c++;
+  };
   Object.keys(S.meals||{}).forEach(day=>{
     if(+day>=tripDays()) return;
     const slots=S.meals[day];
@@ -740,11 +1508,8 @@ function mealExtras(){
       if(s&&s.type==="recipe"&&s.recipe){
         const r=allRecipes().find(x=>x.id===s.recipe); if(!r) return;
         count++;
-        r.ingr.forEach(ing=>{
-          const key=ing.n+"|"+ing.u;
-          map[key]=map[key]||{n:ing.n,u:ing.u,q:0,c:0};
-          map[key].q+=ing.q*n; map[key].c++;
-        });
+        const aboard=crewAboardOn(+day);
+        r.ingr.forEach(ing=>add(ing.n, ing.q*aboard, ing.u, r.name));
       } else if(s&&s.type==="live"&&s.live){
         count++;
         live.push({name:s.live.name,url:s.live.url,day:+day,meal});
@@ -804,8 +1569,8 @@ function liveRow(s,i){
   </li>`;
 }
 function liveSuggestionsHTML(){
-  if(liveLoading) return `<div class="panel"><p style="font-size:14px;color:var(--ink-soft);margin:0">Searching for recipes that fit your crew…</p></div>`;
-  if(liveError) return `<div class="panel"><p style="font-size:14px;color:var(--buoy);margin:0">${esc(liveError)}</p></div>`;
+  if(liveLoading) return `<div class="panel"><p style="font-size:14px;color:var(--ink-2);margin:0">Searching for recipes that fit your crew…</p></div>`;
+  if(liveError) return `<div class="panel"><p style="font-size:14px;color:var(--alert);margin:0">${esc(liveError)}</p></div>`;
   if(!liveSuggestions.length) return "";
   return `<section><button class="sec-head" data-sec="x"><span class="sec-title">Suggested just now</span></button>
     <ul>${liveSuggestions.map((s,i)=>liveRow(s,i)).join("")}</ul></section>`;
@@ -814,30 +1579,114 @@ function liveSuggestionsHTML(){
 /* =================== RENDER =================== */
 const tabsEl=$("tabs"),bodyEl=$("body"),titleEl=$("title"),introEl=$("intro"),
       meterEl=$("meter"),countEl=$("count"),searchEl=$("search"),resetEl=$("reset");
-const isForm=i=>DATA[i].type==="trip"||DATA[i].type==="meals";
+const isForm=i=>DATA[i].type==="trip"||DATA[i].type==="meals"||DATA[i].type==="kitty";
 
+const ICONS={
+  trip:'<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21M5 13a7 7 0 0 0 14 0M4.5 13h2M17.5 13h2M8 9h8"/></svg>',
+  meals:'<svg viewBox="0 0 24 24"><path d="M6 3v8a2 2 0 0 0 4 0V3M8 11v10M18 3c-1.7 1-2.5 3-2.5 5.5 0 1.6.8 2.5 2.5 2.5M18 3v18"/></svg>',
+  shop:'<svg viewBox="0 0 24 24"><path d="M4 8h16l-1.4 10a2 2 0 0 1-2 1.7H7.4a2 2 0 0 1-2-1.7L4 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+  checks:'<svg viewBox="0 0 24 24"><path d="M4 6.5 5.7 8 9 4.8M4 13.5 5.7 15l3.3-3.2M4 20.5 5.7 22l3.3-3.2M12 6.5h8M12 13.5h8M12 20.5h8"/></svg>',
+  sos:'<svg viewBox="0 0 24 24"><path d="M12 3.5 21 19H3l9-15.5Z"/><path d="M12 10v4M12 16.6v.1"/></svg>',
+  kitty:'<svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="12" rx="2.5"/><circle cx="12" cy="12.5" r="2.6"/><path d="M6.5 12.5h.1M17.4 12.5h.1"/></svg>'
+};
+
+/* ---- one consistent line-icon set, drawn at 1.8 stroke to match the UI ---- */
+const I={
+  boat:'<path d="M4 17.5 5.6 12h12.8L20 17.5M12 12V5M8.5 8h7M6 20.5c1.2 0 1.2-1 2.4-1s1.2 1 2.4 1 1.2-1 2.4-1 1.2 1 2.4 1 1.2-1 2.4-1"/>',
+  user:'<circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5"/>',
+  mug:'<path d="M4 6h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6Z"/><path d="M16 8h2.2a2.3 2.3 0 0 1 0 4.6H16"/><path d="M6 3.2v1.2M10 3.2v1.2"/>',
+  bottle:'<path d="M10 3h4v3.2l1.6 2.4V21H8.4V8.6L10 6.2V3Z"/><path d="M8.4 13h7.2"/>',
+  snack:'<circle cx="12" cy="12" r="8.2"/><path d="M9.2 9.6h.1M14.4 10.4h.1M11 14.6h.1M15 14.6h.1"/>',
+  cart:'<path d="M4 7h16l-1.4 9.4a2 2 0 0 1-2 1.7H7.4a2 2 0 0 1-2-1.7L4 7Z"/><path d="M9 7V5.4a3 3 0 0 1 6 0V7"/>',
+  spray:'<path d="M7 9h6v11.5H7z"/><path d="M8.5 9V5.5h3V9"/><path d="M15 5.5h.1M17 7.5h.1M15 9.5h.1"/>',
+  coin:'<circle cx="12" cy="12" r="8.2"/><path d="M14.5 9.3c-.6-.8-1.5-1.2-2.6-1.2-1.6 0-2.6.8-2.6 2s1 1.8 2.6 2.1 2.6.8 2.6 2-1 2-2.6 2c-1.1 0-2-.4-2.6-1.2M12 6.6v10.8"/>',
+  alert:'<path d="M12 3.6 21 19H3l9-15.4Z"/><path d="M12 10v4.2M12 16.8v.1"/>',
+  radio:'<path d="M5.6 7.6a9 9 0 0 0 0 8.8M8.4 10a4.6 4.6 0 0 0 0 4M18.4 7.6a9 9 0 0 1 0 8.8M15.6 10a4.6 4.6 0 0 1 0 4"/><circle cx="12" cy="12" r="1.6"/>',
+  plug:'<path d="M9 3.5v5M15 3.5v5M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0v-3Z"/><path d="M12 17v3.5"/>',
+  recycle:'<path d="M8.6 5.8 6.2 10M15.4 5.8l2.4 4.2M4.6 14.6 7 18.8h4M19.4 14.6 17 18.8h-4"/><path d="M10.2 4.2h3.6l1.6 2.8M4.6 14.6l-1.2-2.2 1.8-3M19.4 14.6l1.2-2.2-1.8-3"/>',
+  bin:'<path d="M5 7h14M9.5 7V4.8h5V7M6.5 7l.9 12.2a1.6 1.6 0 0 0 1.6 1.5h6a1.6 1.6 0 0 0 1.6-1.5L17.5 7"/><path d="M10.2 11v6M13.8 11v6"/>',
+  drop:'<path d="M12 3.6c3 3.6 5.4 6.4 5.4 9.3A5.4 5.4 0 0 1 6.6 12.9c0-2.9 2.4-5.7 5.4-9.3Z"/>',
+  doc:'<path d="M6.5 3.5h7L18 8v12.5H6.5z"/><path d="M13.5 3.5V8H18"/><path d="M9.2 12.5h5.6M9.2 16h5.6"/>',
+  info:'<circle cx="12" cy="12" r="8.4"/><path d="M12 11v5.4M12 7.9v.1"/>',
+  clock:'<circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 2"/>',
+  leaf:'<path d="M19.5 4.5C11 4.5 5.5 8 5.5 14.5c0 1.6.4 3 1.1 4.2M6.6 18.7C14 18.7 19.5 13.2 19.5 4.5"/><path d="M4.5 20.5c1-2.4 2.6-4.4 4.6-6"/>',
+  wallet:'<path d="M4 7.5A2 2 0 0 1 6 5.5h11a1.5 1.5 0 0 1 1.5 1.5v1.5"/><rect x="4" y="7.5" width="16" height="11.5" rx="2.2"/><path d="M15.5 13.2h2.8"/>',
+  siren:'<path d="M6.5 19.5v-5.8a5.5 5.5 0 0 1 11 0v5.8"/><path d="M4.5 19.5h15"/><path d="M12 4.6V2.8M18.8 7.4l1.3-1.3M5.2 7.4 3.9 6.1"/>',
+  antenna:'<path d="M8.9 13.6a4.4 4.4 0 0 1 0-6.2M6.1 16.4a8.4 8.4 0 0 1 0-11.8M15.1 7.4a4.4 4.4 0 0 1 0 6.2M17.9 4.6a8.4 8.4 0 0 1 0 11.8"/><circle cx="12" cy="10.5" r="1.5"/><path d="M12 12v9M9.6 21h4.8"/>',
+  deposit:'<path d="M9.5 3.5h5v2.6l1.5 2.2V20a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V8.3l1.5-2.2V3.5Z"/><path d="M8 12.4h8"/><path d="M12 18.2V14m0 0-1.5 1.6M12 14l1.5 1.6"/>',
+  recycle:'<path d="M12 3.8 14.6 8.3H9.4L12 3.8Z"/><path d="M4.6 16.6 7.2 12l2.6 4.6H4.6Z"/><path d="M19.4 16.6h-5.2L16.8 12l2.6 4.6Z"/><path d="M10.2 19.6h6.2M13.6 21.2l1.8-1.6-1.8-1.6M7.8 19.6H5.9"/>',
+  passport:'<rect x="5.5" y="3.2" width="13" height="17.6" rx="2"/><circle cx="12" cy="10" r="2.8"/><path d="M9.2 16.2h5.6"/>',
+  bulb:'<path d="M9.2 16.4a5.6 5.6 0 1 1 5.6 0v1.9H9.2v-1.9Z"/><path d="M10 20.8h4"/>'
+};
+/* the notes are grouped so you can find things by situation, not by scrolling */
+const NOTE_GROUPS=[
+  {t:"Money and shopping", rows:[["wallet","Currency","cur"],["cart","Supermarkets","shops"],
+                                 ["deposit","Bottle deposit","dep"]]},
+  {t:"If something goes wrong", rows:[["siren","Emergency","emg"],["antenna","Weather on VHF","wx"]]},
+  {t:"Aboard and ashore", rows:[["plug","Shore power","plug"],["drop","Drinking water","water"],
+                                ["recycle","Rubbish and bins","bins"]]},
+  {t:"Before you sail", rows:[["passport","Paperwork","paper"],["bulb","Worth knowing","tip"]]}
+];
+function ico(name,cls){ return I[name]?`<svg class="ico ${cls||""}" viewBox="0 0 24 24">${I[name]}</svg>`:""; }
+const SEC_ICON={"Before you shop":"doc","Breakfast":"mug","General pantry":"snack","Snacks":"snack",
+  "Drinks":"bottle","Non-food":"spray"};
+
+const CHECK_IDS=["packing","schedule","briefing","safety","handover","checkout"];
+const NAV=[
+  {k:"trip",   label:"Trip",   icon:"trip"},
+  {k:"meals",  label:"Meals",  icon:"meals"},
+  {k:"provisions", label:"Shop", icon:"shop"},
+  {k:"kitty",  label:"Kitty",  icon:"kitty"},
+  {k:"checks", label:"Checks", icon:"checks"},
+  {k:"emergency", label:"SOS", icon:"sos", cls:"sos"}
+];
+let lastCheck="schedule";
+const idxOf=id=>DATA.findIndex(d=>d.id===id);
+function currentNavKey(){
+  const id=DATA[active].id;
+  return CHECK_IDS.indexOf(id)!==-1 ? "checks" : id;
+}
 function renderTabs(){
-  tabsEl.innerHTML=DATA.map((l,i)=>`<button role="tab" aria-selected="${i===active}" data-i="${i}">${l.tab}</button>`).join("");
+  const cur=currentNavKey();
+  tabsEl.innerHTML=NAV.map(n=>
+    `<button role="tab" aria-selected="${n.k===cur}" data-nav="${n.k}" class="${n.cls||""}">
+       ${ICONS[n.icon]}<span>${n.label}</span></button>`).join("");
+  const sub=$("subnav");
+  if(cur==="checks"){
+    sub.hidden=false;
+    sub.innerHTML=CHECK_IDS.map(id=>{
+      const d=DATA[idxOf(id)];
+      return `<button data-check="${id}" aria-selected="${DATA[active].id===id}">${d.tab}</button>`;
+    }).join("");
+  } else sub.hidden=true;
 }
 function renderHead(){
   const l=DATA[active];
   titleEl.textContent=l.title; introEl.textContent=l.intro;
+  const setMeter=pct=>{ meterEl.style.display=pct==null?"none":""; if(pct!=null) meterEl.innerHTML=`<i style="width:${pct}%"></i>`; };
   if(l.type==="trip"){
-    meterEl.style.display="none"; resetEl.style.display="none";
-    const d=tripDays(); countEl.textContent=`${crewCount()} aboard · ${d} day${d===1?"":"s"}`;
+    setMeter(null); resetEl.style.display="none";
+    const d=tripDays(), n=crewCount();
+    countEl.textContent=`${n} aboard · ${d} day${d===1?"":"s"}${S.tripCode?" · synced":""}`;
+    return;
+  }
+  if(l.type==="kitty"){
+    setMeter(null); resetEl.style.display="none";
+    const M=kittyMaths();
+    countEl.textContent=`${M.people.length} sharing · ${money(M.spent)} spent`;
     return;
   }
   if(l.type==="meals"){
-    meterEl.style.display="none"; resetEl.style.display="none";
+    setMeter(null); resetEl.style.display="none";
     const d=tripDays(); let planned=0;
     for(let i=0;i<d;i++){ const s=S.meals[i]; if(s){ if(s.lunch&&s.lunch.type) planned++; if(s.dinner&&s.dinner.type) planned++; } }
+    setMeter(d?planned/(d*2)*100:0);
     countEl.textContent=`${planned} of ${d*2} meals planned`;
     return;
   }
-  meterEl.style.display=""; resetEl.style.display="";
+  resetEl.style.display="";
   const ids=listIds(active), done=ids.filter(i=>S.done[i]).length;
-  if(ids.length>60){ meterEl.className="meter solid"; meterEl.innerHTML=`<i style="width:${ids.length?done/ids.length*100:0}%"></i>`; }
-  else{ meterEl.className="meter"; meterEl.innerHTML=ids.map(i=>`<span class="${S.done[i]?"on":""}"></span>`).join(""); }
+  setMeter(ids.length?done/ids.length*100:0);
   countEl.textContent = l.type==="shop" ? `${done} of ${ids.length} bought` : `${done} of ${ids.length} done`;
 }
 function row(id,it,shop){
@@ -846,10 +1695,40 @@ function row(id,it,shop){
   if(shop){
     const q=qtyFor(it);
     if(q.none) cls="off";
+    const add=mealCoverCache[canonIngredient(it.x)];
+    let split=null;
+    if(add && q.lo!=null){
+      let plus=inUnit(add.q, add.u, q.unit);
+      if(plus==null){
+        // "250 g of butter" into a list counted in packs — use the shelf pack size
+        const rule=packRule(it.x);
+        if(rule && rule.size){
+          const conv=toBase(add.q, add.u);
+          if(conv && conv.base===rule.base) plus=conv.v/rule.size;
+        }
+      }
+      if(plus!=null && plus>0){
+        const a2=rnd(q.lo+plus,q.unit), b2=q.hi>q.lo*1.15?rnd(q.hi+plus,q.unit):null;
+        q.t=nf(a2)+(b2&&b2>a2?"–"+nf(b2):"")+" "+q.unit;
+        split={base:rnd(q.lo,q.unit), meals:Math.round(plus*10)/10, unit:q.unit, from:add.from||[]};
+      } else {
+        split={base:rnd(q.lo,q.unit), meals:Math.round(add.q*10)/10, unit:add.u,
+               from:add.from||[], other:true};
+      }
+    }
     right=`<div class="qty">
-      <span class="rec ${q.free?"free":""} ${q.none?"none":""}">${esc(q.t)}</span>
+      ${split?`<button class="rec" data-split="${id}" type="button"
+          aria-expanded="${expandedQty.has(id)}">${esc(q.t)}${ico("meals","split-ico")}</button>`
+        :`<span class="rec ${q.free?"free":""} ${q.none?"none":""}">${esc(q.t)}</span>`}
       <input class="own" data-own="${id}" value="${esc(S.own[id]||"")}" placeholder="yours" aria-label="Your amount">
     </div>`;
+    if(split&&expandedQty.has(id)){
+      extra+=`<span class="split">
+        <span class="split-row"><b>${nf(split.base)} ${esc(split.unit)}</b> standing list</span>
+        <span class="split-row"><b>+ ${nf(split.meals)} ${esc(split.unit)}</b> for ${
+          split.from.length?esc(split.from.join(", ")):"your meals"}</span>
+      </span>`;
+    }
     if(q.notes.length) extra+=`<span class="note diet">${esc(q.notes.join(" · "))}</span>`;
     const hit=allergyHit(it.x);
     if(hit){ cls="alert"; extra+=`<span class="note risk">Allergy: ${esc([...new Set(hit.map(h=>h.who))].join(", "))}</span>`; }
@@ -857,29 +1736,162 @@ function row(id,it,shop){
   return `<li class="${cls}">
     <label class="tick"><input type="checkbox" data-id="${id}" ${on?"checked":""}>
     <span class="txt">${esc(it.x)}${it.n?`<span class="note">${esc(it.n)}</span>`:""}${extra}</span></label>
-    ${right}${it.del?`<button class="del" data-del="${it.del}" title="Remove">×</button>`:""}
+    ${right}${shop&&editMode?`<button class="del" data-hide="${id}" title="Remove from list">×</button>`:""}
   </li>`;
 }
-function extraRow(it){
+/* Which standing-list items does this ingredient already duplicate? */
+
+/* Ingredients that duplicate a standing-list item shouldn't just be marked "covered" —
+   the list item has to grow by what the cooking needs, or you buy 3 L of milk and
+   then use 2 L of it in the risotto. */
+const COUNT_UNITS=new Set(["eggs","egg","limes","lime","lemons","loaves","loaf","pegs","piece","pieces",
+  "rolls","roll","bulbs","bulb","heads","head","pieces"]);
+function mealCover(){
+  const out={};
+  const me=mealExtras();
+  me.items.forEach(it=>{
+    const dup=alsoOnList(it.n);
+    if(!dup) return;
+    const key=canonIngredient(dup.item);
+    out[key]=out[key]||{q:0,u:it.u,names:[],from:[]};
+    if(out[key].u===it.u) out[key].q+=it.q;
+    out[key].names.push(it.n);
+    (it.from||[]).forEach(f=>{ if(out[key].from.indexOf(f)===-1) out[key].from.push(f); });
+  });
+  return out;
+}
+/* express a base amount (g / ml / piece / tin) in the list item's own unit */
+function inUnit(amount, fromUnit, targetUnit){
+  const f=(fromUnit||"").toLowerCase(), t=(targetUnit||"").toLowerCase();
+  if(f===t) return amount;
+  const massVol=u=>["g","kg","ml","l","oz","lb","cup"].includes(u);
+  if(massVol(f)&&massVol(t)){
+    const fb=TO_BASE[f], tb=TO_BASE[t];
+    if(fb&&tb){
+      const fClass=(f==="ml"||f==="l"||f==="cup")?"vol":"mass";
+      const tClass=(t==="ml"||t==="l"||t==="cup")?"vol":"mass";
+      if(fClass===tClass) return amount*fb/tb;
+    }
+    return null;
+  }
+  if(f==="piece" && (COUNT_UNITS.has(t)||t==="")) return amount;
+  if(unitClass(f)===unitClass(t)) return amount;
+  return null;
+}
+
+function alsoOnList(name){
+  const c=canonIngredient(name);
+  if(!c) return null;
+  const manual=dupMap()[c];
+  if(manual) return {item:manual.item, sec:manual.sec, manual:true};
+  if(manual===null) return null;
+  const prov=DATA.find(d=>d.id==="provisions");
+  let hit=null;
+  prov.sections.forEach((sec,si)=>sec.items.forEach((raw,ii)=>{
+    if(hit) return;
+    if(S.hidden&&S.hidden[idOf(DATA.indexOf(prov),si,ii)]) return;
+    const it=norm(raw), ic=canonIngredient(it.x);
+    if(!ic) return;
+    if(ic===c) hit={item:it.x, sec:sec.t};   // exact only — "oat milk" is not "milk"
+  }));
+  return hit;
+}
+function provisionItems(){
+  const prov=DATA.find(d=>d.id==="provisions"), li=DATA.indexOf(prov), out=[];
+  prov.sections.forEach((sec,si)=>sec.items.forEach((raw,ii)=>{
+    if(S.hidden&&S.hidden[idOf(li,si,ii)]) return;
+    const it=norm(raw); out.push({name:it.x, sec:sec.t});
+  }));
+  return out;
+}
+/* Rank likely matches so the common case is one tap, not a hunt through a long list. */
+function matchScore(a,b){
+  const ta=canonIngredient(a).split(" ").filter(Boolean);
+  const tb=canonIngredient(b).split(" ").filter(Boolean);
+  if(!ta.length||!tb.length) return 0;
+  const shared=ta.filter(w=>tb.includes(w)).length;
+  if(!shared) return 0;
+  return shared/Math.max(ta.length,tb.length);
+}
+function mergeSuggestions(name){
+  return provisionItems()
+    .map(p=>({...p, s:matchScore(name,p.name)}))
+    .filter(p=>p.s>=0.34 && canonIngredient(p.name)!==canonIngredient(name))
+    .sort((x,y)=>y.s-x.s).slice(0,3);
+}
+function mergePicker(it,others){
+  const c=canonIngredient(it.n), a=aliasMap(), d=dupMap();
+  const cur = a[c] ? "m:"+a[c] : (d[c]&&d[c].item ? "p:"+d[c].sec+"|"+d[c].item : (d[c]===null?"x":""));
+  const sug=cur===""?mergeSuggestions(it.n):[];
+  return `${sug.length?`<span class="sug">Same as
+    ${sug.map(p=>`<button class="chip" type="button" data-quickmerge="${esc(c)}"
+        data-sec="${esc(p.sec)}" data-item="${esc(p.name)}">${esc(p.name)}?</button>`).join("")}
+    <button class="chip" type="button" data-quickmerge="${esc(c)}" data-no="1">No, separate</button>
+  </span>`:""}
+  <select class="assign" data-merge="${esc(c)}" style="margin:0 14px 12px;width:calc(100% - 28px)">
+    <option value="" ${cur===""?"selected":""}>Own line — buy separately</option>
+    <option value="x" ${cur==="x"?"selected":""}>Not a duplicate (stop suggesting)</option>
+    ${others.length?`<optgroup label="Same as another ingredient">${others.map(o=>
+      `<option value="m:${esc(o.key)}" ${cur==="m:"+o.key?"selected":""}>Count with ${esc(o.n)}</option>`).join("")}</optgroup>`:""}
+    <optgroup label="Already on my shopping list">${provisionItems().map(p=>
+      `<option value="p:${esc(p.sec)}|${esc(p.name)}" ${cur==="p:"+p.sec+"|"+p.name?"selected":""}>${esc(p.name)} — ${esc(p.sec)}</option>`).join("")}</optgroup>
+  </select>`;
+}
+function extraRow(it,others){
   const id="mealx."+slug(it.n), on=!!S.done[id];
+  const buy=toShoppingQty(it.n,it.q,it.u);
+  const dup=alsoOnList(it.n);
+  const sub=[`for ${it.c} planned meal${it.c>1?"s":""}`, buy.need,
+             dup?`added to ${esc(dup.item)} on your ${esc(dup.sec)} list`:""].filter(Boolean).join(" · ");
+  return `<li class="${buy.staple||dup?"off":""}" style="${editMode?"flex-wrap:wrap":""}">
+    <label class="tick"><input type="checkbox" data-id="${id}" ${on?"checked":""}>
+    <span class="txt">${esc(it.n)}<span class="note diet">${esc(sub)}</span></span></label>
+    <div class="qty"><span class="rec ${buy.staple||dup?"free":""}">${dup?"covered":esc(buy.text)}</span></div>
+    ${editMode?mergePicker(it,(others||[]).filter(o=>o.key!==canonKey(it.n))):""}
+  </li>`;
+}
+function customRow(c){
+  const id="custom."+c.id, on=!!S.done[id];
   return `<li><label class="tick"><input type="checkbox" data-id="${id}" ${on?"checked":""}>
-    <span class="txt">${esc(it.n)}<span class="note diet">for ${it.c} planned meal${it.c>1?"s":""}</span></span></label>
-    <div class="qty"><span class="rec">${nf(rndExtra(it.q,it.u))} ${esc(it.u)}</span></div></li>`;
+    <span class="txt">${esc(c.x)}<span class="note diet">added by you</span></span></label>
+    ${c.amt?`<div class="qty"><span class="rec free">${esc(c.amt)}</span></div>`:""}
+    ${editMode?`<button class="del" data-del="${c.id}" title="Remove">×</button>`:""}</li>`;
 }
 function sectionHTML(l,si,sec){
   const shop=DATA[l].type==="shop";
-  const ids=sec.items.map((_,ii)=>idOf(l,si,ii));
+  let mine=shop ? (S.custom||[]).filter(c=>c.sec===sec.t) : [];
+  if(shop&&hideTicked) mine=mine.filter(c=>!S.done["custom."+c.id]);
+  const cleanSkip = DATA[l].id==="checkout" && S.trip.cleaningBooked;
+  const visible=sec.items.map((raw,ii)=>({raw,ii,id:idOf(l,si,ii)}))
+                         .filter(o=>!(shop&&S.hidden&&S.hidden[o.id]))
+                         .filter(o=>!(shop&&hideTicked&&S.done[o.id]))
+                         .filter(o=>!(cleanSkip&&norm(o.raw).clean));
+  const nHidden=sec.items.length-visible.length;
+  const allIds=sec.items.map((raw,ii)=>({raw,id:idOf(l,si,ii)}))
+    .filter(o=>!(cleanSkip&&norm(o.raw).clean)).map(o=>o.id)
+    .filter(id=>!(shop&&S.hidden&&S.hidden[id]))
+    .concat(shop?(S.custom||[]).filter(c=>c.sec===sec.t).map(c=>"custom."+c.id):[]);
+  const ids=allIds;
   const done=ids.filter(i=>S.done[i]).length;
   const open=!collapsed[l+"."+si];
   return `<section>
-    <button class="sec-head ${ids.length&&done===ids.length?"complete":""}" data-sec="${si}">
-      ${DATA[l].numbered?`<span class="step">${si+1}</span>`:""}
+    <button class="sec-head ${ids.length&&done===ids.length?"complete":""} ${open?"":"closed"}" data-sec="${si}">
+      ${DATA[l].numbered?`<span class="step">${si+1}</span>`:(shop&&SEC_ICON[sec.t]?ico(SEC_ICON[sec.t]):"")}
       <span class="sec-title">${esc(sec.t)}${sec.when?`<span class="sec-when">${esc(sec.when)}</span>`:""}</span>
-      <span class="sec-count">${ids.length?done+"/"+ids.length:""}</span>
+      <span class="sec-count">${ids.length?done+"/"+ids.length:(sec.tips?"tips":"")}</span>
+      <span class="chev"></span>
     </button>
     ${sec.warn?`<div class="warn"><strong>Important</strong>${esc(sec.warn)}</div>`:""}
     ${open&&sec.tips?`<div class="tips">${sec.tips.map(p=>`<p>${esc(p)}</p>`).join("")}</div>`:""}
-    ${open&&ids.length?`<ul>${sec.items.map((raw,ii)=>row(idOf(l,si,ii),norm(raw),shop)).join("")}</ul>`:""}
+    ${open&&(visible.length||mine.length)?`<ul>${visible.map(o=>row(o.id,norm(o.raw),shop)).join("")}${mine.map(customRow).join("")}</ul>`
+      :(open&&shop&&hideTicked&&ids.length?`<div class="empty" style="padding:14px 16px">All done in here.</div>`:"")}
+    ${open&&shop&&sec.items.length?`<div class="add">
+      <input data-addname="${si}" placeholder="Add to ${esc(sec.t)}" autocomplete="off">
+      <input data-addqty="${si}" placeholder="amount" style="flex:0 0 88px" autocomplete="off">
+      <button class="btn" data-addbtn="${si}" type="button">Add</button>
+    </div>`:""}
+    ${open&&nHidden?`<div class="tips"><p>${nHidden} item${nHidden>1?"s":""} removed ·
+      <a href="#" data-restore="${si}" style="color:var(--done)">put back</a></p></div>`:""}
   </section>`;
 }
 function chipRow(label,opts,sel,attr,id,multi,cls){
@@ -887,19 +1899,49 @@ function chipRow(label,opts,sel,attr,id,multi,cls){
     `<button class="chip ${cls||""}" data-${attr}="${o.k}" data-id="${id}"
       aria-pressed="${multi?sel.includes(o.k):sel===o.k}">${o.l}</button>`).join("")}</div>`;
 }
+function memberSummary(m){
+  const bits=[];
+  const bf=BREAKFAST.find(x=>x.k===m.bf); if(bf) bits.push(bf.l.split(" ")[0]);
+  if((m.drinks||[]).length) bits.push(m.drinks.map(k=>(DRINKS.find(d=>d.k===k)||{}).l).filter(Boolean)
+    .map(l=>l.split(" ")[0]).join(", "));
+  if(m.level==="big") bits.push("drinks a lot"); else if(m.level==="light") bits.push("drinks little");
+  return bits.join(" · ");
+}
 function memberHTML(m,i){
-  return `<div class="member">
-    <div class="m-top">
-      <input data-f="name" data-id="${m.id}" value="${esc(m.name)}" placeholder="Crew member ${i+1}">
-      <input class="time" type="datetime-local" data-f="arrival" data-id="${m.id}" value="${esc(m.arrival||"")}" aria-label="Arrival">
-      <button class="del" data-rm="${m.id}" title="Remove">×</button>
+  const open=expandedCrew.has(m.id);
+  const diets=(m.diet||[]).map(k=>(DIETS.find(d=>d.k===k)||{}).l).filter(Boolean);
+  const arr=m.arrival?new Date(m.arrival):null;
+  const arrTxt=arr&&!isNaN(arr)?arr.toLocaleString("en-GB",{weekday:"short",hour:"2-digit",minute:"2-digit"}):"";
+  if(!open){
+    return `<div class="mcard">
+      <button class="mhead" data-expand="${m.id}">
+        ${ico("user","dim")}
+        <span class="mname">${esc(m.name||"Crew member "+(i+1))}</span>
+        <span class="mmeta">${arrTxt?esc(arrTxt)+" · ":""}${esc(memberSummary(m)||"not set up yet")}
+          ${diets.length?`<span class="badge">${ico("leaf")}${esc(diets.length>1?diets.length+" diets":diets[0])}</span>`:""}
+          ${(m.allergies||"").trim()?`<span class="badge warn-b">${ico("alert")}allergy</span>`:""}</span>
+        <span class="chev"></span>
+      </button>
+    </div>`;
+  }
+  return `<div class="mcard">
+    <button class="mhead closed" data-expand="${m.id}">
+      ${ico("user","dim")}<span class="mname">${esc(m.name||"Crew member "+(i+1))}</span>
+      <span class="mmeta"></span><span class="chev"></span>
+    </button>
+    <div class="mbody">
+      <div class="m-top">
+        <input data-f="name" data-id="${m.id}" value="${esc(m.name)}" placeholder="Crew member ${i+1}">
+        <input class="time" type="datetime-local" data-f="arrival" data-id="${m.id}" value="${esc(m.arrival||"")}" aria-label="Arrival">
+        <button class="del" data-rm="${m.id}" title="Remove">×</button>
+      </div>
+      ${chipRow("Diet",DIETS,m.diet||[],"diet",m.id,true)}
+      ${chipRow("Breakfast",BREAKFAST,m.bf||"","bf",m.id,false)}
+      ${chipRow("Drinks",DRINKS,m.drinks||[],"drink",m.id,true)}
+      ${chipRow("How much",THIRST,m.level||"avg","level",m.id,false,"thirst")}
+      <input class="allergy" data-f="allergies" data-id="${m.id}" value="${esc(m.allergies||"")}"
+        placeholder="Allergies or foods to avoid (e.g. peanuts, shellfish)">
     </div>
-    ${chipRow("Diet",DIETS,m.diet||[],"diet",m.id,true)}
-    ${chipRow("Breakfast",BREAKFAST,m.bf||"","bf",m.id,false)}
-    ${chipRow("Drinks",DRINKS,m.drinks||[],"drink",m.id,true)}
-    ${chipRow("How much",THIRST,m.level||"avg","level",m.id,false,"thirst")}
-    <input class="allergy" data-f="allergies" data-id="${m.id}" value="${esc(m.allergies||"")}"
-      placeholder="Allergies or foods to avoid (e.g. peanuts, shellfish)">
   </div>`;
 }
 function profileSummary(){
@@ -919,12 +1961,37 @@ function renderTrip(){
   const diets=DIETS.map(x=>({l:x.l,n:dietCount(x.k)})).filter(x=>x.n);
   const allergies=allergyList();
 
-  let html=`<div class="panel"><div class="grid two">
-    <label class="field">Boat name<input data-t="boat" value="${esc(t.boat)}" placeholder="e.g. Bavaria 46 “Nordwind”"></label>
-    <label class="field">Home marina<input data-t="marina" value="${esc(t.marina)}" placeholder="e.g. Marina Kaštela"></label>
-    <label class="field">First day<input type="date" data-t="start" value="${esc(t.start)}"></label>
-    <label class="field">Last day<input type="date" data-t="end" value="${esc(t.end)}"></label>
-  </div></div>`;
+  let html=`<div class="panel">
+    <h2>${ico("boat")} The trip</h2>
+    <div class="grid two">
+      <label class="field">Boat name<input data-t="boat" value="${esc(t.boat)}" placeholder="e.g. Nordwind"></label>
+      <label class="field">Home marina<input data-t="marina" value="${esc(t.marina)}" placeholder="e.g. Marina Kaštela"></label>
+      <label class="field">First day<input type="date" data-t="start" value="${esc(t.start)}"></label>
+      <label class="field">Last day<input type="date" data-t="end" value="${esc(t.end)}"></label>
+      <label class="field" style="grid-column:1/-1">Country<select data-t="country">
+        ${Object.keys(COUNTRIES).map(k=>`<option value="${k}" ${t.country===k?"selected":""}>${esc(COUNTRIES[k].n)}</option>`).join("")}
+      </select></label>
+    </div>
+  </div>
+
+  <section>
+    <button class="sec-head ${boatOpen?"":"closed"}" id="boatToggle">
+      ${ico("boat")}<span class="sec-title">Boat details</span>
+      <span class="sec-count">${[t.model,t.loa&&t.loa+" m",t.berths&&t.berths+" berths"].filter(Boolean).join(" · ")||"optional"}</span>
+      <span class="chev"></span>
+    </button>
+    ${boatOpen?`<div class="boat-grid">
+      <label class="field" style="grid-column:1/-1">Make and model<input data-t="model" value="${esc(t.model||"")}" placeholder="e.g. Bavaria Cruiser 46"></label>
+      <label class="field">Length overall<input data-t="loa" value="${esc(t.loa||"")}" inputmode="decimal" placeholder="13.8 m"></label>
+      <label class="field">Draft<input data-t="draft" value="${esc(t.draft||"")}" inputmode="decimal" placeholder="2.1 m"></label>
+      <label class="field">Beam<input data-t="beam" value="${esc(t.beam||"")}" inputmode="decimal" placeholder="4.4 m"></label>
+      <label class="field">Berths<input data-t="berths" value="${esc(t.berths||"")}" inputmode="numeric" placeholder="10"></label>
+      <label class="field">Water tanks<input data-t="water" value="${esc(t.water||"")}" placeholder="2 × 350 L"></label>
+      <label class="field">Diesel<input data-t="fuel" value="${esc(t.fuel||"")}" placeholder="210 L"></label>
+      <label class="field">Sail number or call sign<input data-t="callsign" value="${esc(t.callsign||"")}" placeholder="9A1234"></label>
+      <label class="field">Charter company<input data-t="charter" value="${esc(t.charter||"")}" placeholder="Who to call about the boat"></label>
+    </div>`:""}
+  </section>`;
 
   html+=`<section>
     <div class="summary">
@@ -933,6 +2000,9 @@ function renderTrip(){
       <div><b>${arrivals.length?fmt(arrivals[0].arrival).replace(/,.*/,""):"—"}</b><span>first arrival</span></div>
       <div><b>${arrivals.length?(arrivals[arrivals.length-1].name||"—"):"—"}</b><span>arrives last</span></div>
     </div>
+    ${S.crew.length?`<button class="sec-head" data-sec="x" style="border-bottom:1px solid var(--line)">
+      ${ico("user")}<span class="sec-title">Crew</span>
+      <span class="sec-count">${S.crew.length}</span></button>`:""}
     ${!S.crew.length?`<div class="empty">No crew yet. Add everyone below — the meal plan and provisioning list follow the number of people, what they eat for breakfast and what they drink.</div>`:""}
     ${S.crew.map(memberHTML).join("")}
     <div class="add"><button class="btn" id="addCrew" type="button">Add crew member</button></div>
@@ -947,12 +2017,20 @@ function renderTrip(){
     </div></div>`;
   }
   if(arrivals.length){
-    html+=`<section><button class="sec-head" data-sec="x"><span class="sec-title">Arrivals</span></button>
+    html+=`<section><button class="sec-head" data-sec="x">${ico("clock")}<span class="sec-title">Arrivals</span></button>
       <ul>${arrivals.map(m=>`<li><label class="tick" style="cursor:default">
-        <span class="txt">${esc(m.name||"Crew member")}<span class="note">${esc(fmt(m.arrival))}</span></span></label></li>`).join("")}</ul></section>`;
+        <span class="txt">${esc(m.name||"Crew member")}<span class="note">${esc(fmt(m.arrival))}</span></span></label></li>`).join("")}</ul>
+      ${(()=>{ const d=tripDays(), n=crewCount();
+        const days=[]; for(let i=0;i<d;i++) days.push(crewAboardOn(i));
+        const partial=days.filter(x=>x<n).length;
+        if(!partial) return "";
+        return `<div class="tips"><p><b>Not everyone is aboard the whole week.</b>
+          ${days.map((c,i)=>`${esc(dayLabel(i).split(",")[0])}: ${c}/${n}`).join(" · ")}.
+          Shopping and meal quantities follow these numbers rather than assuming a full crew from day one.</p></div>`;
+      })()}</section>`;
   }
   const prof=profileSummary();
-  html+=`<section><button class="sec-head" data-sec="x"><span class="sec-title">Catering summary</span></button>
+  html+=`<section><button class="sec-head" data-sec="x">${ico("mug")}<span class="sec-title">Catering summary</span></button>
     <ul>
       ${prof.map(p=>`<li><label class="tick" style="cursor:default"><span class="txt">${esc(p)}</span></label></li>`).join("")}
       ${diets.map(x=>`<li><label class="tick" style="cursor:default"><span class="txt">${x.n} × ${esc(x.l)}</span></label></li>`).join("")}
@@ -961,18 +2039,49 @@ function renderTrip(){
       ${!S.crew.length?`<li><label class="tick" style="cursor:default"><span class="txt">Assuming an average mixed crew until profiles are set</span></label></li>`:""}
     </ul></section>`;
 
+  const C=COUNTRIES[t.country||""];
+  if(C && t.country){
+    const tep = t.country==="gr" ? tepaiEstimate(numIn(t.loa)) : null;
+    html+=`<section>
+      <button class="sec-head ${notesOpen?"":"closed"}" id="notesToggle">
+        ${ico("bulb")}<span class="sec-title">${esc(C.n)}</span>
+        <span class="sec-count">local notes</span><span class="chev"></span>
+      </button>
+      ${notesOpen?`<div style="border-top:1px solid var(--line)">
+      ${NOTE_GROUPS.map(g=>`
+        <div class="grp">${esc(g.t)}</div>
+        ${g.rows.map(([i,k,f])=>{
+          const v=C[f]; if(!v) return "";
+          const body = f==="emg"  ? emergencyChips(v)
+                     : f==="bins" ? binRows(v)
+                     : f==="wx"   ? wxRows(v)
+                     : `<span>${esc(v)}</span>`;
+          return `<div class="fact">${ico(i)}<div><b>${esc(k)}</b>${body}</div></div>`;
+        }).join("")}
+        ${g.t==="Before you sail"&&tep?`<div class="fact">${ico("wallet")}<div><b>TEPAI for ${esc(t.loa)} m</b>
+          <span style="color:var(--done)">${esc(tep)} — pay online at aade.gr before you sail</span></div></div>`:""}
+      `).join("")}
+      </div>
+      <div class="tips">
+        <p><b>Aboard, everywhere:</b> nothing goes over the side — MARPOL bans plastic anywhere at sea and rubbish within 12 miles of land. Old flares, flat batteries, waste oil and filters are hazardous waste: hand them to the marina office, never the ordinary bins.</p>
+        <p>Marina bins fill up fast in season. Crush and bag everything, and carry rubbish ashore whenever you leave rather than letting it build up in the cockpit locker.</p>
+        <p>Checked September 2026. Fees, bin colours and deposit schemes change and vary by town — confirm locally before relying on them.</p>
+      </div>`:""}
+    </section>`;
+  }
+
   html+=`<div class="panel">
     <h2>Share with your crew</h2>
     ${!fbConfigured()
-      ? `<p style="font-size:14px;color:var(--ink-soft);margin:0">Not set up yet — needs a one-time Firebase project setup. Ask your assistant for the steps if you haven't done this.</p>`
+      ? `<p style="font-size:14px;color:var(--ink-2);margin:0">Not set up yet — needs a one-time Firebase project setup. Ask your assistant for the steps if you haven't done this.</p>`
       : S.tripCode
-        ? `<p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px">Trip code <b style="color:var(--ink);letter-spacing:.06em">${esc(S.tripCode)}</b> ·
-             <span style="color:${(fbStatus||"").indexOf("error")!==-1?"var(--buoy)":"var(--done)"}">${esc(fbStatus||"Connecting…")}</span></p>
+        ? `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Trip code <b style="color:var(--ink);letter-spacing:.06em">${esc(S.tripCode)}</b> ·
+             <span style="color:${(fbStatus||"").indexOf("error")!==-1?"var(--alert)":"var(--done)"}">${esc(fbStatus||"Connecting…")}</span></p>
            <div style="display:flex;gap:8px;flex-wrap:wrap">
              <button class="btn" id="fbCopyBtn" type="button">Copy invite link</button>
-             <button class="btn" id="fbStopBtn" type="button" style="background:#fff;color:var(--buoy);border:1px solid var(--line)">Stop live sync</button>
+             <button class="btn quiet" id="fbStopBtn" type="button" style="color:var(--alert)">Stop live sync</button>
            </div>`
-        : `<p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px">Turns this trip into a shared document — everyone with the invite link sees crew, meal plan and recipes update live. Your own ticks and Spoonacular key always stay private to this device.</p>
+        : `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Turns this trip into a shared document — everyone with the invite link sees crew, meal plan and recipes update live. Your own ticks and Spoonacular key always stay private to this device.</p>
            <button class="btn" id="fbStartBtn" type="button">Start live sync</button>`}
   </div>`;
   bodyEl.innerHTML=html;
@@ -980,7 +2089,7 @@ function renderTrip(){
 function renderMeals(){
   const d=tripDays();
   let html=`<div class="panel"><h2>How the week eats</h2>
-    <p style="font-size:14px;color:var(--ink-soft);margin:0">Pick a recipe, mark a meal as eating out, or keep it simple with no specific dish. Recipes flagged in red clash with a diet or allergy on your crew.</p>
+    <p style="font-size:14px;color:var(--ink-2);margin:0 0 12px">Pick a recipe, mark a meal as eating out, or keep it simple with no specific dish. Recipes flagged in red clash with a diet or allergy on your crew.</p>
   </div>`;
   for(let i=0;i<d;i++){
     const slot=S.meals[i]||{};
@@ -996,7 +2105,7 @@ function renderMeals(){
       <span class="sec-count">${S.customRecipes.length}</span></button>
       <ul>${S.customRecipes.map(r=>`<li><label class="tick" style="cursor:default"><span class="txt">${esc(r.name)}
         <span class="note">${r.type==="both"?"Lunch or dinner":r.type==="lunch"?"Lunch":"Dinner"} · ${(r.ingr||[]).length} ingredients${r.url?` · <a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--done)">source</a>`:""}</span></span></label>
-        <button class="btn" data-editrecipe="${r.id}" type="button" style="margin:10px 0;background:#fff;color:var(--ink);border:1px solid var(--line);padding:6px 12px;font-size:14px">Edit</button>
+        <button class="btn quiet" data-editrecipe="${r.id}" type="button" style="margin:10px 0;padding:8px 14px;font-size:14px">Edit</button>
         <button class="del" data-delrecipe="${r.id}" title="Remove">×</button></li>`).join("")}</ul></section>`;
   }
   bodyEl.innerHTML=html;
@@ -1078,7 +2187,7 @@ async function spoonUse(id){
   spoonLoading=false; renderMeals();
 }
 /* ---- sharing: the picked fields are pushed to Firestore for live sync ---- */
-const SHARE_FIELDS=["trip","crew","meals","customRecipes","own","custom","crewManual","daysManual","c"];
+const SHARE_FIELDS=["trip","crew","meals","customRecipes","own","custom","crewManual","daysManual","c","hidden","kitty","aliases","dups"];
 function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); return p; }
 function applyShare(payload){
   SHARE_FIELDS.forEach(k=>{ if(payload[k]!==undefined) S[k]=payload[k]; });
@@ -1096,6 +2205,7 @@ function subscribeFb(code){
     if(data){
       const incoming=JSON.stringify(shareSubset(data));
       if(incoming===lastPushedJSON) return; // our own write echoing back — ignore, don't disturb typing
+      if(pendingPush) return; // we have unsent local edits; don't let a stale snapshot overwrite them
       syncingRemote=true; applyShare(data); syncingRemote=false;
       fbStatus="Updated from another device.";
       if(isTyping()) pendingRender=true; else render();
@@ -1133,7 +2243,7 @@ function ingredientRow(ing,i){
     <input data-ing="u" data-i="${i}" value="${esc(ing.u)}" placeholder="unit"
       style="padding:8px 9px;font:inherit;font-size:14.5px;border:1px solid var(--line);border-radius:7px">
     <button data-ing-del="${i}" type="button" title="Remove"
-      style="border:none;background:none;color:var(--buoy);font-size:20px;cursor:pointer;padding:0">×</button>
+      style="border:none;background:none;color:var(--alert);font-size:20px;cursor:pointer;padding:0">×</button>
   </div>`;
 }
 function renderRecipeForm(){
@@ -1149,10 +2259,10 @@ function renderRecipeForm(){
       <input id="spoonQuery" placeholder="e.g. chorizo pasta" style="flex:1;padding:9px 11px;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:8px">
       <button class="btn" id="spoonSearchBtn" type="button" ${spoonLoading?"disabled":""}>${spoonLoading?"…":"Search"}</button>
     </div>
-    ${spoonError?`<p style="font-size:14px;color:var(--buoy);margin:0 0 10px">${esc(spoonError)}</p>`:""}
+    ${spoonError?`<p style="font-size:14px;color:var(--alert);margin:0 0 10px">${esc(spoonError)}</p>`:""}
     ${spoonResults.length?`<ul style="border-top:1px solid var(--line);margin-bottom:12px">${spoonResults.map(r=>`
       <li><label class="tick" style="cursor:default"><span class="txt">${esc(r.title)}</span></label>
-      <button class="btn" data-spoonuse="${r.id}" type="button" style="margin:8px 14px;background:#fff;color:var(--ink);border:1px solid var(--line)">Use this</button></li>`).join("")}</ul>`:""}
+      <button class="btn quiet" data-spoonuse="${r.id}" type="button" style="margin:8px 14px">Use this</button></li>`).join("")}</ul>`:""}
 
     <div class="rowlab" style="margin-top:4px">…or fill in by hand / paste from anywhere else</div>
     <div class="grid two">
@@ -1175,22 +2285,170 @@ function renderRecipeForm(){
     <div class="rowlab" style="margin-top:14px">Paste ingredients from a site to parse them (one per line)</div>
     <textarea id="drPaste" rows="3" style="width:100%;padding:9px 11px;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:8px"
       placeholder="200g chorizo&#10;1 tin chopped tomatoes&#10;2 cloves garlic"></textarea>
-    <div style="margin-top:8px"><button class="btn" id="drParse" type="button" style="background:#fff;color:var(--ink);border:1px solid var(--line)">Parse into ingredients</button></div>
+    <div style="margin-top:8px"><button class="btn quiet" id="drParse" type="button">Parse into ingredients</button></div>
 
     <div class="rowlab" style="margin-top:14px">Ingredients (amounts for the servings above — scaled per person from there)</div>
     <div>${draftRecipe.ingr.map((ing,i)=>ingredientRow(ing,i)).join("")}</div>
-    <div style="margin-top:8px"><button class="btn" id="drAddRow" type="button" style="background:#fff;color:var(--ink);border:1px solid var(--line)">+ Add ingredient</button></div>
+    <div style="margin-top:8px"><button class="btn quiet" id="drAddRow" type="button">+ Add ingredient</button></div>
 
     <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" id="drSave" type="button">${draftRecipe.id?"Save changes":"Save recipe"}</button>
-      ${draftRecipe.id?`<button class="btn" id="drCancel" type="button" style="background:#fff;color:var(--ink);border:1px solid var(--line)">Cancel</button>`:""}
+      ${draftRecipe.id?`<button class="btn quiet" id="drCancel" type="button">Cancel</button>`:""}
     </div>
   </div>`;
 }
+
+/* ---- boat kitty: contributions, spending, and who settles what ---- */
+function kittyState(){ S.kitty=S.kitty||{cur:"€",contrib:{},expenses:[]};
+  S.kitty.contrib=S.kitty.contrib||{}; S.kitty.expenses=S.kitty.expenses||[]; return S.kitty; }
+function kittyMembers(){
+  const k=kittyState();
+  if(S.crew.length) return S.crew.map(m=>({id:m.id,name:m.name||"Crew member"}));
+  // no roster yet — fall back to whoever appears in the kitty data
+  const ids=new Set(Object.keys(k.contrib));
+  k.expenses.forEach(e=>{ if(e.by&&e.by!=="kitty") ids.add(e.by); });
+  return [...ids].map(id=>({id,name:"Crew member"}));
+}
+function kittyMaths(){
+  const k=kittyState(), mem=kittyMembers(), n=mem.length||1;
+  const num=v=>{ const x=numIn(v); return isNaN(x)?0:x; };
+  const contributed=mem.reduce((s,m)=>s+num(k.contrib[m.id]),0);
+  const spent=k.expenses.reduce((s,e)=>s+num(e.amt),0);
+  const fromKitty=k.expenses.filter(e=>e.by==="kitty").reduce((s,e)=>s+num(e.amt),0);
+  const share=spent/n;
+  const people=mem.map(m=>{
+    const paid=num(k.contrib[m.id])+k.expenses.filter(e=>e.by===m.id).reduce((s,e)=>s+num(e.amt),0);
+    return {...m, paid, balance:paid-share};
+  });
+  return {contributed, spent, fromKitty, pot:contributed-fromKitty, share, people, n};
+}
+const CUR_SYMBOL={tr:"₺",al:"L",ba:"KM",il:"₪",eg:"E£",tn:"DT",dz:"DA",ma:"DH",
+  gi:"£",lb:"$",sy:"£S",ly:"LD"};
+function curSymbol(){
+  const k=kittyState();
+  if(k.cur && k.cur!=="€") return k.cur;          // explicit choice wins
+  return CUR_SYMBOL[S.trip.country] || "€";        // otherwise follow the country
+}
+function money(v){ return curSymbol()+Math.abs(v).toFixed(2); }
+/* one estimate, used on the Provisions tab and offered to the kitty */
+function shopEstimate(){
+  const n=crewCount(), d=tripDays(), g=groups();
+  const beerF=g.beer/(n*0.6||1);
+  const base=(n/9)*(d/8)*presenceFactor()*(0.7+0.3*beerF);
+  return {lo:Math.round(500*base/10)*10, hi:Math.round(1000*base/10)*10};
+}
+function renderKitty(){
+  const k=kittyState(), M=kittyMaths();
+  let html=`<div class="panel">
+    <div class="summary" style="margin:-16px -16px 0;border-top:none;border-radius:var(--r) var(--r) 0 0">
+      <div><b>${money(M.pot)}</b><span>left in the kitty</span></div>
+      <div><b>${money(M.spent)}</b><span>spent so far</span></div>
+      <div><b>${money(M.share)}</b><span>each, evenly split</span></div>
+    </div>
+  </div>`;
+
+  if(!M.people.length){
+    html+=`<div class="panel"><p class="empty" style="padding:0">Add your crew on the Trip tab first — the kitty splits across them.</p></div>`;
+    bodyEl.innerHTML=html; return;
+  }
+
+  html+=`<section>
+    <button class="sec-head" data-sec="x">${ico("coin")}<span class="sec-title">Paid into the kitty</span></button>
+    <ul>${M.people.map(p=>`<li><label class="tick" style="cursor:default">
+      <span class="txt">${esc(p.name)}</span></label>
+      <div class="qty"><input class="own" style="width:84px" data-contrib="${p.id}"
+        value="${esc(k.contrib[p.id]||"")}" placeholder="0.00" inputmode="decimal"></div></li>`).join("")}
+    </ul></section>`;
+
+  const byName=id=>id==="kitty"?"the kitty":(M.people.find(p=>p.id===id)||{name:"someone"}).name;
+  const est=shopEstimate();
+  const loggedShop=k.expenses.some(e=>/shop|groceries|supermarket|provision/i.test(e.desc));
+  if(!loggedShop){
+    html+=`<div class="panel">
+      <h2>The big shop</h2>
+      <p style="font-size:14px;color:var(--ink-2);margin:0 0 12px;line-height:1.5">
+        Your provisioning list comes to roughly ${money(est.lo)}–${money(est.hi)} for
+        ${M.n} ${M.n===1?"person":"people"}. It's usually the largest single expense of the week.</p>
+      <button class="btn quiet" id="logShop" type="button" data-amt="${Math.round((est.lo+est.hi)/2)}">
+        ${ico("cart")} Log the shop from the kitty</button>
+    </div>`;
+  }
+  html+=`<section>
+    <button class="sec-head" data-sec="x">${ico("cart")}<span class="sec-title">Spending</span>
+      <span class="sec-count">${k.expenses.length}</span></button>
+    ${k.expenses.length?`<ul>${k.expenses.slice().reverse().map(e=>`<li>
+      <label class="tick" style="cursor:default"><span class="txt">${esc(e.desc)}
+        <span class="note">paid by ${esc(byName(e.by))}${e.date?" · "+esc(e.date):""}</span></span></label>
+      <div class="qty"><span class="rec">${money(numIn(e.amt)||0)}</span></div>
+      <button class="del" data-delexp="${e.id}" title="Remove">×</button></li>`).join("")}</ul>`
+      :`<div class="empty">Nothing logged yet.</div>`}
+    <div class="add" style="flex-wrap:wrap">
+      <input id="expDesc" placeholder="What was it? e.g. diesel, mooring at Vis" style="flex:1 1 100%">
+      <input id="expAmt" placeholder="0.00" inputmode="decimal" style="flex:0 0 96px">
+      <select id="expBy" class="assign" style="flex:1;min-width:0">
+        <option value="kitty">From the kitty</option>
+        ${M.people.map(p=>`<option value="${p.id}">${esc(p.name)} paid</option>`).join("")}
+      </select>
+      <button class="btn" id="expAdd" type="button">Add</button>
+    </div></section>`;
+
+  const owe=M.people.filter(p=>p.balance<-0.005).sort((a,b)=>a.balance-b.balance);
+  const due=M.people.filter(p=>p.balance>0.005).sort((a,b)=>b.balance-a.balance);
+  // Balances sum to whatever is left in the pot, so the kitty settles the difference:
+  // overspent → everyone pays in; money left → the kitty refunds.
+  const debts=owe.map(p=>({name:p.name,amt:-p.balance}));
+  const creds=due.map(p=>({name:p.name,amt:p.balance}));
+  if(M.pot<-0.005) creds.push({name:"the kitty",amt:-M.pot});
+  else if(M.pot>0.005) debts.push({name:"the kitty",amt:M.pot});
+  const transfers=settleUp(debts,creds);
+  html+=`<section>
+    <button class="sec-head" data-sec="x">${ico("doc")}<span class="sec-title">Settling up</span></button>
+    <ul>${M.people.map(p=>`<li><label class="tick" style="cursor:default">
+      <span class="txt">${esc(p.name)}<span class="note">put in ${money(p.paid)} · fair share ${money(M.share)}</span></span></label>
+      <div class="qty"><span class="rec ${p.balance<-0.005?"":"free"}" style="${p.balance<-0.005?"background:#FDF2F3;color:var(--alert)":""}">
+        ${Math.abs(p.balance)<0.005?"square":(p.balance>0?"gets back "+money(p.balance):"owes "+money(p.balance))}</span></div></li>`).join("")}
+    </ul>
+    ${M.pot<-0.005?`<div class="warn"><strong>The kitty is short ${money(M.pot)}</strong>
+      More has been spent from it than was paid in — ${money(-M.pot/M.n)} each tops it back up.</div>`:""}
+    ${M.pot>0.005?`<div class="tips"><p><b>${money(M.pot)} still in the kitty</b> — ${money(M.pot/M.n)} each if you split what's left.</p></div>`:""}
+    ${transfers.length?`<div class="tips"><p><b>Simplest way to settle:</b><br>${
+      transfers.map(t=>`${esc(t.from)} pays ${esc(t.to)} ${money(t.amt)}`).join("<br>")
+    }</p></div>`:""}
+    <div class="tips"><p>The kitty covers shared costs — fuel, moorings, the big shop. Personal extras stay off this list.</p></div>
+  </section>`;
+  bodyEl.innerHTML=html;
+}
+function settleUp(debts,creds){
+  debts=debts.slice(); creds=creds.slice();
+  const out=[]; let i=0,j=0;
+  while(i<debts.length&&j<creds.length){
+    const amt=Math.min(debts[i].amt,creds[j].amt);
+    if(amt>0.005) out.push({from:debts[i].name,to:creds[j].name,amt});
+    debts[i].amt-=amt; creds[j].amt-=amt;
+    if(debts[i].amt<0.005) i++;
+    if(creds[j].amt<0.005) j++;
+  }
+  return out;
+}
+function addExpense(){
+  const d=$("expDesc"), a=$("expAmt"), b=$("expBy");
+  const desc=d?d.value.trim():"", amt=numIn(a?a.value:"");
+  if(!desc||isNaN(amt)||amt<=0) return;
+  const k=kittyState();
+  const now=new Date();
+  k.expenses.push({id:Date.now().toString(36), desc, amt,
+    by:b?b.value:"kitty", date:now.toLocaleDateString("en-GB",{day:"numeric",month:"short"})});
+  save(); render();
+  const nd=$("expDesc"); if(nd) nd.focus();
+}
+
+let mealCoverCache={}, expandedQty=new Set();
 function renderList(){
   const l=DATA[active];
+  mealCoverCache = l.type==="shop" ? mealCover() : {};
   if(l.type==="trip"){ renderTrip(); return; }
   if(l.type==="meals"){ renderMeals(); return; }
+  if(l.type==="kitty"){ renderKitty(); return; }
   let html="";
   if(l.contacts){
     const c=S.c;
@@ -1201,19 +2459,31 @@ function renderList(){
         ${c.mail?`<a class="mail" href="mailto:${esc(c.mail)}">Email the report<span>${esc(c.mail)}</span></a>`:""}
       </div>
       <div class="fields">
-        <label class="field">First contact<input data-c="n1" value="${esc(c.n1)}" placeholder="Name, e.g. flotilla lead"></label>
+        <label class="field">First contact<input data-c="n1" value="${esc(c.n1)}" placeholder="Name, e.g. trip organiser"></label>
         <label class="field">Phone<input data-c="p1" value="${esc(c.p1)}" placeholder="+41 ..." inputmode="tel"></label>
         <label class="field">Backup contact<input data-c="n2" value="${esc(c.n2)}" placeholder="Name"></label>
         <label class="field">Phone<input data-c="p2" value="${esc(c.p2)}" placeholder="+41 ..." inputmode="tel"></label>
         <label class="field">Email for report and photos<input data-c="mail" value="${esc(c.mail)}" placeholder="name@example.com" inputmode="email"></label>
       </div></section>`;
   }
+  if(l.id==="checkout"){
+    const booked=!!S.trip.cleaningBooked;
+    html+=`<div class="panel">
+      <h2>Did you book final cleaning?</h2>
+      <div class="chips">
+        <button class="chip" data-clean="0" aria-pressed="${!booked}">We're cleaning it</button>
+        <button class="chip" data-clean="1" aria-pressed="${booked}">Cleaning is booked</button>
+      </div>
+      <p style="font-size:14px;color:var(--ink-2);margin:12px 0 0;line-height:1.5">${booked
+        ? "Cleaning jobs are hidden below. A package almost never covers rubbish, food left in the fridge, holding tanks or your own gear — those are still yours, and bases do charge extra for a boat handed back in a state."
+        : "Everything is on the list. If the base includes cleaning — common in Croatia — switch this and the cleaning jobs drop off."}</p>
+    </div>`;
+  }
   if(l.type==="shop"){
     const n=crewCount(), d=tripDays(), g=groups(), me=mealExtras();
-    const beerF=g.beer/(n*0.6||1);
-    const lo=Math.round(500*(n/9)*(d/8)*(0.7+0.3*beerF)/10)*10;
-    const hi=Math.round(1000*(n/9)*(d/8)*(0.7+0.3*beerF)/10)*10;
+    const {lo,hi}=shopEstimate();
     const al=allergyList();
+    const allIdsNow=listIds(active), done=allIdsNow.filter(i=>!S.done[i]).length;
     if(al.length) html+=`<div class="banner"><strong>Allergies aboard</strong>${al.map(a=>`${esc(a.name)}: ${esc(a.text)}`).join(" · ")}</div>`;
     html+=`<div class="plan">
       <div class="stepper"><span>Crew</span>
@@ -1223,12 +2493,30 @@ function renderList(){
         <button data-n="daysManual" data-d="-1" ${S.trip.start&&S.trip.end?"disabled":""}>−</button><b>${d}</b>
         <button data-n="daysManual" data-d="1" ${S.trip.start&&S.trip.end?"disabled":""}>+</button></div>
       <p>${profileSummary().join(" · ")||"Assuming an average mixed crew."} · Rough expectation: €${nf(lo)}–${nf(hi)}.${me.count?` Plus ingredients for ${me.count} planned meal${me.count>1?"s":""} below.`:""}</p>
+      <div style="flex:1 1 100%;display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn ${hideTicked?"":"quiet"}" id="shopToggle" type="button" style="padding:9px 15px;font-size:14px">
+          ${ico("cart")} ${hideTicked?`Showing ${done} to buy`:"Shopping mode"}</button>
+        <button class="btn ${editMode?"":"quiet"}" id="editToggle" type="button" style="padding:9px 15px;font-size:14px">
+          ${editMode?"Done":"Edit"}</button>
+      </div>
     </div>`;
     if(me.items.length){
-      html+=`<section><button class="sec-head" data-sec="x"><span class="sec-title">For your planned meals</span>
-        <span class="sec-count">${me.items.length}</span></button>
-        <div class="tips"><p>These come from the recipes you picked on the Meals tab — check what's already aboard before adding them to the trolley.</p></div>
-        <ul>${me.items.map(extraRow).join("")}</ul></section>`;
+      const vis=me.items.filter(it=>!(hideTicked&&S.done["mealx."+slug(it.n)]));
+      const covered=vis.filter(it=>alsoOnList(it.n));
+      const buyable=vis.filter(it=>!toShoppingQty(it.n,it.q,it.u).staple && !alsoOnList(it.n));
+      const sibs=buyable.map(it=>({key:canonKey(it.n), n:it.n}));
+      const staples=vis.filter(it=>toShoppingQty(it.n,it.q,it.u).staple);
+      html+=`<section><button class="sec-head" data-sec="x">${ico("cart")}<span class="sec-title">For your planned meals</span>
+        <span class="sec-count">${buyable.length}</span></button>
+        <div class="tips"><p>Amounts are rounded up to the smallest pack you can actually buy — the note under each line shows what the recipes need, so you can judge the leftovers.</p></div>
+        ${editMode?`<div class="tips"><p>Pick “same as…” on any line to merge it with another ingredient or mark it as already covered. Your choices stick for the whole trip.</p></div>`:""}
+        ${buyable.length?`<ul>${buyable.map(it=>extraRow(it,sibs)).join("")}</ul>`:`<div class="empty">Nothing extra to buy.</div>`}
+        ${covered.length?`<div class="tips"><p><b>Counted in your main list:</b> ${
+          covered.map(it=>esc(it.n)).join(", ")} — the amounts were added to those lines above,
+          so there's nothing separate to buy.</p></div>`:""}
+        ${staples.length?`<div class="tips"><p><b>Pantry staples:</b> ${
+          staples.map(it=>esc(it.n)).join(", ")}. Small amounts — just check they're aboard.</p></div>`:""}
+      </section>`;
     }
     if(me.live.length){
       html+=`<section><button class="sec-head" data-sec="x"><span class="sec-title">Check ingredients for these</span>
@@ -1241,12 +2529,13 @@ function renderList(){
   }
   l.sections.forEach((sec,si)=>{ html+=sectionHTML(active,si,sec); });
   if(l.type==="shop"){
-    html+=`<section>
-      <button class="sec-head" data-sec="x"><span class="sec-title">Your own items</span>
-        <span class="sec-count">${S.custom.length||""}</span></button>
-      ${S.custom.length?`<ul>${S.custom.map(c=>row("custom."+c.id,{x:c.x,del:c.id},false)).join("")}</ul>`:""}
-      <div class="add"><input id="newItem" placeholder="Anything missing?" autocomplete="off">
-        <button class="btn" id="addItem" type="button">Add</button></div></section>`;
+    const loose=(S.custom||[]).filter(c=>!c.sec);
+    if(loose.length){
+      html+=`<section>
+      <button class="sec-head" data-sec="x"><span class="sec-title">Other items</span>
+        <span class="sec-count">${loose.length}</span></button>
+      <ul>${loose.map(customRow).join("")}</ul></section>`;
+    }
   }
   bodyEl.innerHTML=html;
 }
@@ -1256,9 +2545,15 @@ function renderSearch(){
     if(!l.sections) return;
     let inner="";
     l.sections.forEach((sec,si)=>sec.items.forEach((raw,ii)=>{
-      const it=norm(raw);
-      if((it.x+" "+(it.n||"")+" "+sec.t).toLowerCase().includes(q)){ inner+=row(idOf(li,si,ii),it,l.type==="shop"); hits++; }
+      const it=norm(raw), id=idOf(li,si,ii);
+      if(l.type==="shop"&&S.hidden&&S.hidden[id]) return;   // removed from the list — don't resurrect it in search
+      if((it.x+" "+(it.n||"")+" "+sec.t).toLowerCase().includes(q)){ inner+=row(id,it,l.type==="shop"); hits++; }
     }));
+    if(l.type==="shop"){
+      (S.custom||[]).forEach(c=>{
+        if((c.x+" "+(c.sec||"")).toLowerCase().includes(q)){ inner+=customRow(c); hits++; }
+      });
+    }
     if(inner) html+=`<section><div class="hit">${esc(l.title)}</div><ul>${inner}</ul></section>`;
   });
   bodyEl.innerHTML=hits?html:`<p class="empty">Nothing matches “${esc(query)}”.</p>`;
@@ -1303,16 +2598,27 @@ function render(){
   });
 }
 /* If a remote update lands mid-typing, hold the redraw until the field is left. */
-document.addEventListener("focusout",()=>{
+document.addEventListener("focusout",e=>{
+  if(e.target&&e.target.dataset&&e.target.dataset.contrib&&DATA[active].type==="kitty"){
+    setTimeout(()=>{ if(!isTyping()) render(); },120);
+  }
   setTimeout(()=>{ if(pendingRender && !isTyping()){ pendingRender=false; render(); } },120);
 });
 
 /* =================== EVENTS =================== */
-tabsEl.addEventListener("click",e=>{
-  const b=e.target.closest("button[data-i]"); if(!b) return;
-  active=+b.dataset.i; searchEl.value=""; query="";
+function goTo(id){
+  active=idxOf(id); searchEl.value=""; query=""; editMode=false; hideTicked=false; expandedQty.clear();
   searchEl.style.display=isForm(active)?"none":"";
   render(); window.scrollTo({top:0});
+}
+tabsEl.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-nav]"); if(!b) return;
+  const k=b.dataset.nav;
+  goTo(k==="checks" ? lastCheck : k);
+});
+$("subnav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-check]"); if(!b) return;
+  lastCheck=b.dataset.check; goTo(lastCheck);
 });
 bodyEl.addEventListener("change",e=>{
   const liveSel=e.target.closest("select[data-live]");
@@ -1327,6 +2633,17 @@ bodyEl.addEventListener("change",e=>{
     return;
   }
   if(e.target.id==="drType"){ draftRecipe.type=e.target.value; return; }
+  const mg=e.target.closest("select[data-merge]");
+  if(mg){
+    const c=mg.dataset.merge, v=mg.value, a=aliasMap(), d=dupMap();
+    delete a[c]; delete d[c];
+    if(v==="x") d[c]=null;                                   // you've said it's not a duplicate
+    else if(v.indexOf("m:")===0) a[c]=v.slice(2);            // merge into another ingredient
+    else if(v.indexOf("p:")===0){
+      const [sec,item]=v.slice(2).split("|"); d[c]={sec,item};
+    }
+    save(); render(); return;
+  }
   const sel=e.target.closest("select[data-day]");
   if(sel){
     const day=+sel.dataset.day, meal=sel.dataset.meal, val=sel.value;
@@ -1344,22 +2661,29 @@ bodyEl.addEventListener("change",e=>{
     save(); renderHead();
     const head=cb.closest("section")?.querySelector(".sec-head[data-sec]");
     if(head&&head.dataset.sec!=="x"&&!query.trim()){
-      const si=head.dataset.sec;
-      const ids=DATA[active].sections[si].items.map((_,ii)=>idOf(active,si,ii));
+      const si=head.dataset.sec, shop=DATA[active].type==="shop";
+      const sec=DATA[active].sections[si];
+      let ids=sec.items.map((_,ii)=>idOf(active,si,ii)).filter(id=>!(shop&&S.hidden&&S.hidden[id]));
+      if(shop) ids=ids.concat((S.custom||[]).filter(c=>c.sec===sec.t).map(c=>"custom."+c.id));
       const d=ids.filter(i=>S.done[i]).length;
       head.querySelector(".sec-count").textContent=d+"/"+ids.length;
-      head.classList.toggle("complete",d===ids.length);
+      head.classList.toggle("complete",ids.length>0&&d===ids.length);
     }
     return;
   }
   const dt=e.target.closest("input[data-t]");
   if(dt&&(dt.dataset.t==="start"||dt.dataset.t==="end")){ S.trip[dt.dataset.t]=dt.value; save(); if(!isTyping()) render(); else pendingRender=true; }
+  const cs=e.target.closest("select[data-t='country']");
+  if(cs){ S.trip.country=cs.value; save(); render(); }
   const ar=e.target.closest("input[data-f='arrival']");
   if(ar){ const m=S.crew.find(x=>x.id===ar.dataset.id); if(m){ m.arrival=ar.value; save(); if(!isTyping()) render(); else pendingRender=true; } }
 });
 bodyEl.addEventListener("input",e=>{
   const t=e.target;
   if(t.dataset.own!=null){ const k=t.dataset.own; t.value.trim()?S.own[k]=t.value:delete S.own[k]; save(); return; }
+  if(t.dataset.contrib){ const kk=kittyState(); const v=t.value.trim();
+    if(v) kk.contrib[t.dataset.contrib]=v; else delete kk.contrib[t.dataset.contrib];
+    save(); renderHead(); return; }
   if(t.dataset.c){ S.c[t.dataset.c]=t.value; save(); return; }
   if(t.dataset.t&&t.dataset.t!=="start"&&t.dataset.t!=="end"){ S.trip[t.dataset.t]=t.value; save(); return; }
   if(t.dataset.f&&t.dataset.f!=="arrival"){ const m=S.crew.find(x=>x.id===t.dataset.id); if(m){ m[t.dataset.f]=t.value; save(); } }
@@ -1371,6 +2695,13 @@ bodyEl.addEventListener("input",e=>{
   if(t.dataset.ing){ const i=+t.dataset.i; if(draftRecipe.ingr[i]) draftRecipe.ingr[i][t.dataset.ing]=t.value; return; }
 });
 bodyEl.addEventListener("click",e=>{
+  const rest=e.target.closest("a[data-restore]");
+  if(rest){
+    e.preventDefault();
+    const si=+rest.dataset.restore;
+    (DATA[active].sections[si].items||[]).forEach((_,ii)=>{ delete S.hidden[idOf(active,si,ii)]; });
+    save(); render(); return;
+  }
   const btn=e.target.closest("button"); if(!btn) return;
   if(btn.id==="fbStartBtn"){ fbStart(); return; }
   if(btn.id==="fbStopBtn"){ fbStop(); return; }
@@ -1399,9 +2730,9 @@ bodyEl.addEventListener("click",e=>{
   if(btn.id==="drCancel"){ blankDraft(); renderMeals(); return; }
   if(btn.id==="drSave"){
     const name=draftRecipe.name.trim();
-    const serves=Math.max(1,parseFloat(draftRecipe.serves)||6);
+    const serves=Math.max(1,numIn(draftRecipe.serves)||6);
     const ingr=draftRecipe.ingr.filter(i=>i.n&&i.n.trim())
-      .map(i=>({n:i.n.trim(), q:(parseFloat(i.q)||0.1)/serves, u:(i.u||"piece").trim()||"piece"}));
+      .map(i=>({n:i.n.trim(), q:(numIn(i.q)||0.1)/serves, u:(i.u||"piece").trim()||"piece"}));
     if(!name||!ingr.length){ alert("Give the recipe a name and at least one ingredient."); return; }
     S.customRecipes=S.customRecipes||[];
     if(draftRecipe.id){
@@ -1417,6 +2748,8 @@ bodyEl.addEventListener("click",e=>{
   if(btn.dataset.editrecipe){ editRecipe(btn.dataset.editrecipe); return; }
   if(btn.dataset.delrecipe){
     const id=btn.dataset.delrecipe;
+    const rr=(S.customRecipes||[]).find(r=>r.id===id);
+    pushUndo(rr?('Removed "'+rr.name+'"'):"Recipe removed");
     S.customRecipes=(S.customRecipes||[]).filter(r=>r.id!==id);
     Object.keys(S.meals||{}).forEach(day=>{
       ["lunch","dinner"].forEach(meal=>{
@@ -1448,9 +2781,20 @@ bodyEl.addEventListener("click",e=>{
     btn.parentElement.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.level===m.level)));
     save(); return;
   }
-  if(btn.dataset.rm){ S.crew=S.crew.filter(x=>x.id!==btn.dataset.rm); save(); render(); return; }
+  if(btn.id==="boatToggle"){ boatOpen=!boatOpen; renderTrip(); return; }
+  if(btn.id==="notesToggle"){ notesOpen=!notesOpen; renderTrip(); return; }
+  if(btn.dataset.expand){
+    const id=btn.dataset.expand;
+    if(expandedCrew.has(id)) expandedCrew.delete(id); else expandedCrew.add(id);
+    renderTrip(); return;
+  }
+  if(btn.dataset.rm){ const cm=S.crew.find(x=>x.id===btn.dataset.rm);
+    pushUndo(cm&&cm.name?("Removed "+cm.name):"Crew member removed");
+    S.crew=S.crew.filter(x=>x.id!==btn.dataset.rm); expandedCrew.delete(btn.dataset.rm); save(); render(); return; }
   if(btn.id==="addCrew"){
-    S.crew.push({id:Date.now().toString(36),name:"",arrival:"",diet:[],drinks:[],bf:"",level:"avg",allergies:""});
+    const nid=Date.now().toString(36);
+    S.crew.push({id:nid,name:"",arrival:"",diet:[],drinks:[],bf:"",level:"avg",allergies:""});
+    expandedCrew.add(nid);
     save(); render();
     const inputs=bodyEl.querySelectorAll("input[data-f='name']");
     if(inputs.length) inputs[inputs.length-1].focus();
@@ -1460,28 +2804,110 @@ bodyEl.addEventListener("click",e=>{
     const k=btn.dataset.n;
     S[k]=Math.min(k==="crewManual"?16:30,Math.max(1,S[k]+ +btn.dataset.d)); save(); render(); return;
   }
-  if(btn.dataset.del){ S.custom=S.custom.filter(c=>c.id!==btn.dataset.del); delete S.done["custom."+btn.dataset.del]; save(); render(); return; }
-  if(btn.id==="addItem"){ addItem(); return; }
+  if(btn.dataset.clean){
+    S.trip.cleaningBooked = btn.dataset.clean==="1";
+    save(); render(); return;
+  }
+  if(btn.dataset.quickmerge){
+    const c=btn.dataset.quickmerge, a=aliasMap(), d=dupMap();
+    delete a[c]; delete d[c];
+    if(btn.dataset.no) d[c]=null;
+    else d[c]={sec:btn.dataset.sec, item:btn.dataset.item};
+    save(); render(); return;
+  }
+  if(btn.dataset.split){
+    const k=btn.dataset.split;
+    if(expandedQty.has(k)) expandedQty.delete(k); else expandedQty.add(k);
+    render(); return;
+  }
+  if(btn.id==="editToggle"){ editMode=!editMode; if(editMode) hideTicked=false; render(); return; }
+  if(btn.id==="shopToggle"){ hideTicked=!hideTicked; if(hideTicked) editMode=false; render(); window.scrollTo({top:0}); return; }
+  if(btn.id==="expAdd"){ addExpense(); return; }
+  if(btn.id==="logShop"){
+    const d=$("expDesc"), a2=$("expAmt"), b2=$("expBy");
+    if(d) d.value="Big shop";
+    if(a2){ a2.value=btn.dataset.amt; a2.focus(); a2.select&&a2.select(); }
+    if(b2) b2.value="kitty";
+    return;
+  }
+  if(btn.dataset.delexp){
+    const kk=kittyState();
+    const ex=kk.expenses.find(x=>x.id===btn.dataset.delexp);
+    pushUndo(ex?('Removed "'+ex.desc+'"'):"Expense removed");
+    kk.expenses=kk.expenses.filter(x=>x.id!==btn.dataset.delexp);
+    save(); render(); return;
+  }
+  if(btn.dataset.hide){ pushUndo("Item removed"); S.hidden=S.hidden||{}; S.hidden[btn.dataset.hide]=1; delete S.done[btn.dataset.hide]; save(); render(); return; }
+  if(btn.dataset.addbtn!=null){ addToSection(+btn.dataset.addbtn); return; }
+  if(btn.dataset.del){
+    const it=(S.custom||[]).find(c=>c.id===btn.dataset.del);
+    pushUndo(it?('Removed "'+it.x+'"'):"Item removed");
+    S.custom=S.custom.filter(c=>c.id!==btn.dataset.del); delete S.done["custom."+btn.dataset.del]; save(); render(); return;
+  }
   const head=btn.closest(".sec-head[data-sec]");
   if(head&&head.dataset.sec!=="x"&&!query.trim()){
     collapsed[active+"."+head.dataset.sec]=!collapsed[active+"."+head.dataset.sec]; render();
   }
 });
 bodyEl.addEventListener("keydown",e=>{
-  if(e.target.id==="newItem"&&e.key==="Enter") addItem();
   if(e.target.id==="spoonQuery"&&e.key==="Enter") spoonSearch();
+  if((e.target.id==="expDesc"||e.target.id==="expAmt")&&e.key==="Enter"){ e.preventDefault(); addExpense(); }
+  if(e.key==="Enter"&&(e.target.dataset.addname!=null||e.target.dataset.addqty!=null)){
+    e.preventDefault();
+    addToSection(+(e.target.dataset.addname!=null?e.target.dataset.addname:e.target.dataset.addqty));
+  }
 });
-function addItem(){
-  const inp=$("newItem"); if(!inp||!inp.value.trim()) return;
-  S.custom.push({id:Date.now().toString(36),x:inp.value.trim()}); save(); render();
-  const n=$("newItem"); if(n) n.focus();
+function addToSection(si){
+  const nameEl=bodyEl.querySelector('[data-addname="'+si+'"]');
+  const qtyEl=bodyEl.querySelector('[data-addqty="'+si+'"]');
+  const name=nameEl?nameEl.value.trim():"";
+  if(!name) return;
+  const sec=DATA[active].sections[si];
+  S.custom=S.custom||[];
+  S.custom.push({id:Date.now().toString(36), x:name, amt:qtyEl?qtyEl.value.trim():"", sec:sec.t});
+  save(); render();
+  const again=bodyEl.querySelector('[data-addname="'+si+'"]');
+  if(again) again.focus();
 }
 resetEl.addEventListener("click",()=>{
   const l=DATA[active];
-  if(!confirm(`Clear every tick in “${l.title}”?`)) return;
+  if(!l.sections) return;
+  const n=listIds(active).filter(i=>S.done[i]).length;
+  if(!n) return;
+  pushUndo(`Cleared ${n} tick${n>1?"s":""} in ${l.title}`);
   listIds(active).forEach(i=>delete S.done[i]); save(); render();
 });
+$("undoBtn").addEventListener("click",doUndo);
 searchEl.addEventListener("input",e=>{ query=e.target.value; render(); });
+
+/* ---- offline support ---- */
+function markOnline(){ document.body.classList.toggle("is-offline", !navigator.onLine); }
+window.addEventListener("online", ()=>{ markOnline();
+  if(S.tripCode && window.__fb && window.__fb.configured){ fbPush().catch(()=>{}); }
+});
+window.addEventListener("offline", markOnline);
+markOnline();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      reg.addEventListener("updatefound", ()=>{
+        const nw=reg.installing; if(!nw) return;
+        nw.addEventListener("statechange", ()=>{
+          if(nw.state==="installed" && navigator.serviceWorker.controller){
+            const t=$("updToast"); if(t) t.hidden=false;
+            const b=$("updBtn");
+            if(b) b.onclick=()=>{ nw.postMessage("skipWaiting"); location.reload(); };
+          }
+        });
+      });
+    }).catch(()=>{});
+    let reloading=false;
+    navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+      if(reloading) return; reloading=true; location.reload();
+    });
+  });
+}
 
 (async()=>{
   await load();
