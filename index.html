@@ -316,7 +316,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
   import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+  import { getFirestore, doc, setDoc, updateDoc, deleteField, FieldPath, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
   // ── Paste your project's config here (Firebase console → Project settings → Your apps) ──
   // This object is safe to publish — Firebase config is not a secret. Leave apiKey as-is
@@ -344,7 +344,30 @@
     async push(code,payload){
       if(!ready) await window.__fb.init();
       if(!db) throw new Error("Firebase not configured");
-      await setDoc(doc(db,"trips",code), Object.assign({},payload,{updatedAt:serverTimestamp()}));
+      const ref=doc(db,"trips",code), body=Object.assign({},payload,{updatedAt:serverTimestamp()});
+      // updateDoc replaces every field it names but leaves the ones it doesn't —
+      // doneShop — untouched, so a text edit can't wipe ticks written one by one.
+      // Replacing rather than merging is what keeps deletions inside own/hidden working.
+      try{ await updateDoc(ref, body); }
+      catch(e){ if(e.code==="not-found") await setDoc(ref, body); else throw e; }
+    },
+    // One field per tick, so two people ticking different items never touch the
+    // same field and cannot overwrite each other — no merge, no read, no retry.
+    async tickWrite(code,adds,dels){
+      if(!ready) await window.__fb.init();
+      if(!db) throw new Error("Firebase not configured");
+      const ref=doc(db,"trips",code);
+      if(adds.length){
+        const m={}; adds.forEach(id=>{ m[id]=true; });
+        await setDoc(ref,{doneShop:m},{merge:true});
+      }
+      // A tick id contains dots. updateDoc's string form would read those as path
+      // separators, find nothing and delete nothing — silently. FieldPath takes
+      // each argument as one literal segment, so the id stays whole.
+      for(const id of dels){
+        try{ await updateDoc(ref, new FieldPath("doneShop", id), deleteField()); }
+        catch(e){ if(e.code!=="not-found") throw e; }
+      }
     },
     async subscribe(code,onData,onErr){
       if(!ready) await window.__fb.init();
@@ -1104,7 +1127,7 @@ function waitForFb(timeoutMs=3000){
 }
 
 let lastPushedJSON=null;
-function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); p.doneShop=shopDone(data.doneShop); return p; }
+function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); return p; }
 async function fbPush(){
   const payload=pickShare();
   lastPushedJSON=JSON.stringify(payload);
@@ -1126,6 +1149,7 @@ function save(){
   },250);
   // Push to Firestore on a longer delay — one write per pause, not per keystroke.
   if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
+    pushTickChanges();
     pendingPush=true;
     clearTimeout(pushTmr);
     pushTmr=setTimeout(async()=>{
@@ -2193,14 +2217,31 @@ const SHARE_FIELDS=["trip","crew","meals","customRecipes","own","custom","crewMa
    only the three id prefixes the shop tab uses travel. */
 const SHOP_TICK=/^(provisions\.|custom\.|mealx\.)/;
 function shopDone(done){ const p={}; Object.keys(done||{}).forEach(k=>{ if(SHOP_TICK.test(k)) p[k]=done[k]; }); return p; }
-function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); p.doneShop=shopDone(S.done); return p; }
+function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); return p; }
+/* What we last saw on the server, so a tick or untick can be sent as just that
+   one field instead of the whole shopping list. */
+let lastShopTicks={};
+function pushTickChanges(){
+  if(!(S.tripCode && fbConfigured())) return;
+  const now=shopDone(S.done);
+  const adds=Object.keys(now).filter(k=>!lastShopTicks[k]);
+  const dels=Object.keys(lastShopTicks).filter(k=>!now[k]);
+  if(!adds.length && !dels.length) return;
+  lastShopTicks=now;
+  // Straight out, no debounce: a tick is finished the moment it is made, and the
+  // crew member holding the basket should see it now, not in a second and a half.
+  window.__fb.tickWrite(S.tripCode,adds,dels)
+    .catch(()=>{ fbStatus="Sync error — check your connection."; });
+}
+function applyTicks(map){
+  const before=JSON.stringify(shopDone(S.done));
+  const keep={}; Object.keys(S.done||{}).forEach(k=>{ if(!SHOP_TICK.test(k)) keep[k]=S.done[k]; });
+  S.done=Object.assign(keep,shopDone(map));
+  lastShopTicks=shopDone(S.done);
+  return before!==JSON.stringify(lastShopTicks);
+}
 function applyShare(payload){
   SHARE_FIELDS.forEach(k=>{ if(payload[k]!==undefined) S[k]=payload[k]; });
-  if(payload.doneShop!==undefined){
-    // Keep this device's private ticks, swap in the crew's shopping ones.
-    const keep={}; Object.keys(S.done||{}).forEach(k=>{ if(!SHOP_TICK.test(k)) keep[k]=S.done[k]; });
-    S.done=Object.assign(keep,shopDone(payload.doneShop));
-  }
   save();
 }
 
@@ -2214,9 +2255,15 @@ function subscribeFb(code){
   window.__fb.subscribe(code, data=>{
     if(data){
       const incoming=JSON.stringify(shareSubset(data));
-      if(incoming===lastPushedJSON) return; // our own write echoing back — ignore, don't disturb typing
-      if(pendingPush) return; // we have unsent local edits; don't let a stale snapshot overwrite them
-      syncingRemote=true; applyShare(data); syncingRemote=false;
+      const blobIsOurs=(incoming===lastPushedJSON); // our own write echoing back
+      syncingRemote=true;
+      const tickChanged=applyTicks(data.doneShop||{});
+      // Ticks are applied either way: the blob half often matches what we last
+      // pushed, and returning early there would drop the crew's ticks entirely.
+      if(!blobIsOurs && !pendingPush) applyShare(data);
+      syncingRemote=false;
+      if(blobIsOurs && !tickChanged) return;
+      if(tickChanged) save();
       fbStatus="Updated from another device.";
       if(isTyping()) pendingRender=true; else render();
     } else {
@@ -2229,12 +2276,12 @@ async function fbStart(){
   if(!have || !fbConfigured()){ fbStatus="Firebase isn't configured yet."; renderTrip(); return; }
   const code=genCode();
   fbStatus="Connecting…"; S.tripCode=code; renderTrip();
-  try{ await fbPush(); fbStatus="Synced just now"; subscribeFb(code); renderTrip(); }
+  try{ await fbPush(); pushTickChanges(); fbStatus="Synced just now"; subscribeFb(code); renderTrip(); }
   catch(e){ fbStatus="Couldn't start live sync — check your Firebase setup."; renderTrip(); }
 }
 function fbStop(){
   if(window.__fb) window.__fb.unsubscribe();
-  S.tripCode=""; fbStatus=""; lastPushedJSON=null; save(); render();
+  S.tripCode=""; fbStatus=""; lastPushedJSON=null; lastShopTicks={}; save(); render();
 }
 async function fbCopyLink(){
   const base=(location.protocol.indexOf("http")===0) ? location.origin+location.pathname : "";
