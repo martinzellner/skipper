@@ -1104,7 +1104,7 @@ function waitForFb(timeoutMs=3000){
 }
 
 let lastPushedJSON=null;
-function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); return p; }
+function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); p.doneShop=shopDone(data.doneShop); return p; }
 async function fbPush(){
   const payload=pickShare();
   lastPushedJSON=JSON.stringify(payload);
@@ -2081,7 +2081,7 @@ function renderTrip(){
              <button class="btn" id="fbCopyBtn" type="button">Copy invite link</button>
              <button class="btn quiet" id="fbStopBtn" type="button" style="color:var(--alert)">Stop live sync</button>
            </div>`
-        : `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Turns this trip into a shared document — everyone with the invite link sees crew, meal plan and recipes update live. Your own ticks and Spoonacular key always stay private to this device.</p>
+        : `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Turns this trip into a shared document — everyone with the invite link sees crew, meal plan, recipes and the shopping list — including what's already in the basket — update live. Your ticks on the personal lists and your Spoonacular key stay private to this device.</p>
            <button class="btn" id="fbStartBtn" type="button">Start live sync</button>`}
   </div>`;
   bodyEl.innerHTML=html;
@@ -2188,9 +2188,19 @@ async function spoonUse(id){
 }
 /* ---- sharing: the picked fields are pushed to Firestore for live sync ---- */
 const SHARE_FIELDS=["trip","crew","meals","customRecipes","own","custom","crewManual","daysManual","c","hidden","kitty","aliases","dups"];
-function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); return p; }
+/* Provisioning is one shared errand — whoever is at the shop ticks, everyone sees it.
+   Ticks on the personal lists (packing, safety, handover…) stay on this device, so
+   only the three id prefixes the shop tab uses travel. */
+const SHOP_TICK=/^(provisions\.|custom\.|mealx\.)/;
+function shopDone(done){ const p={}; Object.keys(done||{}).forEach(k=>{ if(SHOP_TICK.test(k)) p[k]=done[k]; }); return p; }
+function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); p.doneShop=shopDone(S.done); return p; }
 function applyShare(payload){
   SHARE_FIELDS.forEach(k=>{ if(payload[k]!==undefined) S[k]=payload[k]; });
+  if(payload.doneShop!==undefined){
+    // Keep this device's private ticks, swap in the crew's shopping ones.
+    const keep={}; Object.keys(S.done||{}).forEach(k=>{ if(!SHOP_TICK.test(k)) keep[k]=S.done[k]; });
+    S.done=Object.assign(keep,shopDone(payload.doneShop));
+  }
   save();
 }
 
