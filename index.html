@@ -1127,11 +1127,39 @@ function waitForFb(timeoutMs=3000){
 }
 
 let lastPushedJSON=null;
+/* What we last got onto the server, kept as a detached copy purely to work out
+   what to send next. It never decides who wins a conflict, so if it is ever
+   wrong the cost is a larger write, not a lost edit. */
+let lastSent=null;
+const isPlainObj=v=>!!v&&typeof v==="object"&&!Array.isArray(v);
+/* Fixed-shape panels whose keys are plain identifiers, so each one can be
+   addressed as its own path and two people editing different boxes in the same
+   panel — the boat name and the marina — no longer overwrite one another. */
+const LEAF_FIELDS=["trip","c"];
+function buildUpdate(payload){
+  if(!lastSent) return Object.assign({},payload);
+  const upd={};
+  SHARE_FIELDS.forEach(k=>{
+    const cur=payload[k], prev=lastSent[k];
+    if(JSON.stringify(cur)===JSON.stringify(prev)) return;   // untouched: don't send it
+    if(LEAF_FIELDS.indexOf(k)!==-1 && isPlainObj(cur) && isPlainObj(prev)
+       && Object.keys(prev).every(f=>cur[f]!==undefined)){   // no key disappeared
+      Object.keys(cur).forEach(f=>{
+        if(JSON.stringify(cur[f])!==JSON.stringify(prev[f])) upd[k+"."+f]=cur[f];
+      });
+    } else {
+      upd[k]=cur;   // arrays, scalars, maps that lost a key: replace wholesale
+    }
+  });
+  return upd;
+}
 function shareSubset(data){ const p={}; SHARE_FIELDS.forEach(k=>{ if(data[k]!==undefined) p[k]=data[k]; }); return p; }
 async function fbPush(){
   const payload=pickShare();
+  const upd=buildUpdate(payload);
   lastPushedJSON=JSON.stringify(payload);
-  await window.__fb.push(S.tripCode, payload);
+  if(Object.keys(upd).length) await window.__fb.push(S.tripCode, upd);
+  lastSent=JSON.parse(JSON.stringify(payload));
 }
 
 async function load(){
@@ -1147,7 +1175,9 @@ function save(){
   tmr=setTimeout(async()=>{
     try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
   },250);
-  // Push to Firestore on a longer delay — one write per pause, not per keystroke.
+  // Still debounced, but only to batch keystrokes: the write now carries the
+  // fields that actually changed, so waiting long enough to be "safe" is no
+  // longer the point and the pause can be short.
   if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
     pushTickChanges();
     pendingPush=true;
@@ -1155,7 +1185,7 @@ function save(){
     pushTmr=setTimeout(async()=>{
       try{ await fbPush(); pendingPush=false; }
       catch(e){ pendingPush=false; fbStatus="Sync error — check your connection."; }
-    },1500);
+    },600);
   }
 }
 
@@ -2242,6 +2272,7 @@ function applyTicks(map){
 }
 function applyShare(payload){
   SHARE_FIELDS.forEach(k=>{ if(payload[k]!==undefined) S[k]=payload[k]; });
+  lastSent=JSON.parse(JSON.stringify(pickShare()));
   save();
 }
 
@@ -2281,7 +2312,7 @@ async function fbStart(){
 }
 function fbStop(){
   if(window.__fb) window.__fb.unsubscribe();
-  S.tripCode=""; fbStatus=""; lastPushedJSON=null; lastShopTicks={}; save(); render();
+  S.tripCode=""; fbStatus=""; lastPushedJSON=null; lastShopTicks={}; lastSent=null; save(); render();
 }
 async function fbCopyLink(){
   const base=(location.protocol.indexOf("http")===0) ? location.origin+location.pathname : "";
