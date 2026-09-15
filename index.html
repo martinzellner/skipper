@@ -44,6 +44,17 @@
   .offline-dot{display:none;align-items:center;gap:5px;font-size:12px;color:#F0C27A;margin-top:6px}
   body.is-offline .offline-dot{display:inline-flex}
   .offline-dot i{width:7px;height:7px;border-radius:50%;background:#F0C27A;display:block}
+  /* Sync state belongs on every tab — you are in the shop, not on the trip screen,
+     exactly when you need to know whether the crew can see your ticks. */
+  .syncchip{display:none;align-items:center;gap:6px;font-size:12px;margin-top:6px;color:#B8D8D1}
+  body.is-shared .syncchip{display:inline-flex}
+  body.is-shared.is-offline .offline-dot{display:none}   /* the chip says it instead */
+  .syncchip i{width:7px;height:7px;border-radius:50%;background:#5FBF9F;display:block;flex:0 0 auto}
+  .syncchip.warn{color:#F0C27A} .syncchip.warn i{background:#F0C27A}
+  .syncchip.bad{color:#FF9AA5}  .syncchip.bad i{background:#FF9AA5}
+  .syncchip.busy i{background:#F0C27A;animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){ .syncchip.busy i{animation:none} }
   .ghost{background:none;border:1px solid rgba(255,255,255,.28);color:#B8D8D1;
     font-size:13px;padding:6px 12px;border-radius:99px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
   .ghost:hover{border-color:#fff;color:#fff}
@@ -288,6 +299,7 @@
       <h1 id="title"></h1>
       <div class="head-sub" id="count"></div>
     <div class="offline-dot"><i></i>Offline — everything still works, sync resumes later</div>
+    <div class="syncchip" id="syncChip" role="status" aria-live="polite"><i></i><span id="syncChipText"></span></div>
     </div>
     <button class="ghost" id="reset" type="button">Clear ticks</button>
   </div>
@@ -316,7 +328,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
   import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-  import { getFirestore, doc, setDoc, updateDoc, deleteField, FieldPath, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField, FieldPath, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
   // ── Paste your project's config here (Firebase console → Project settings → Your apps) ──
   // This object is safe to publish — Firebase config is not a secret. Leave apiKey as-is
@@ -350,6 +362,27 @@
       // Replacing rather than merging is what keeps deletions inside own/hidden working.
       try{ await updateDoc(ref, body); }
       catch(e){ if(e.code==="not-found") await setDoc(ref, body); else throw e; }
+    },
+    // Presence sits in its own field per device, so heartbeats never collide with
+    // each other or with anything else in the trip.
+    // Read a trip once without subscribing, so we can show what is behind a code
+    // before anyone commits to replacing what they have.
+    async peek(code){
+      if(!ready) await window.__fb.init();
+      if(!db) throw new Error("Firebase not configured");
+      const snap=await getDoc(doc(db,"trips",code));
+      return snap.exists()?snap.data():null;
+    },
+    async presenceWrite(code,id,entry){
+      if(!ready) await window.__fb.init();
+      if(!db) return;
+      await setDoc(doc(db,"trips",code),{presence:{[id]:entry}},{merge:true});
+    },
+    async presenceClear(code,id){
+      if(!ready) await window.__fb.init();
+      if(!db) return;
+      try{ await updateDoc(doc(db,"trips",code), new FieldPath("presence",id), deleteField()); }
+      catch(e){ if(e.code!=="not-found") throw e; }
     },
     // One field per tick, so two people ticking different items never touch the
     // same field and cannot overwrite each other — no merge, no read, no retry.
@@ -1126,7 +1159,144 @@ function waitForFb(timeoutMs=3000){
   });
 }
 
+/* This device needs a name of its own before the crew can be told who ticked
+   something or who else is in the shop. It is per device, not per person, and
+   never leaves localStorage except inside a presence entry. */
+const DEV_KEY=KEY+"-dev";
+let devId="", devName="";
+function loadDevice(){
+  try{ devId=localStorage.getItem(DEV_KEY+"-id")||""; }catch(e){}
+  if(!devId){
+    devId=Math.random().toString(36).slice(2,10);
+    try{ localStorage.setItem(DEV_KEY+"-id",devId); }catch(e){}
+  }
+  try{ devName=localStorage.getItem(DEV_KEY+"-name")||""; }catch(e){}
+}
+function setDevName(v){
+  devName=(v||"").trim().slice(0,24);
+  try{ localStorage.setItem(DEV_KEY+"-name",devName); }catch(e){}
+  beat(true);
+}
+const whoAmI=()=>devName||"Someone";
+whoAmI.fallback="Someone";
+
+/* Presence: a heartbeat per device, pruned by age. Only while the tab is visible
+   and online, so a phone in a pocket isn't writing all day. */
+let presence={}, beatTmr=null;
+const PRESENCE_TTL=150000, BEAT_MS=60000;
+function livePresence(){
+  const now=Date.now(), out=[];
+  Object.keys(presence||{}).forEach(k=>{
+    const e=presence[k];
+    if(!e||typeof e.at!=="number") return;
+    if(now-e.at>PRESENCE_TTL) return;
+    out.push({id:k,name:e.n||"Someone",tab:e.tab||"",me:k===devId});
+  });
+  return out;
+}
+/* Reinstalling or clearing storage mints a new device id, so an old entry of ours
+   can linger until it ages out. Drop anything carrying our own name, and show each
+   name once, so nobody reads themselves as another crew member. */
+function othersHere(){
+  const mine=devName, seen={}, out=[];
+  livePresence().forEach(p=>{
+    if(p.me) return;
+    if(mine && p.name===mine) return;      // our own entry from before a reinstall
+    if(p.name && p.name!==whoAmI.fallback){ // only collapse real names: two crew who
+      if(seen[p.name]) return;              // never set one are both the fallback and
+      seen[p.name]=1;                       // must not hide each other
+    }
+    out.push(p);
+  });
+  return out;
+}
+/* force: an explicit beat — joining, changing tab, coming back to the app — always
+   writes, so you show up to the crew straight away. Only the idle interval skips a
+   hidden or offline page, which is what keeps this from writing all day. */
+function beat(force){
+  if(!(S.tripCode && fbConfigured())) return;
+  if(!navigator.onLine) return;
+  if(!force && document.visibilityState==="hidden") return;
+  const entry={n:whoAmI(),at:Date.now(),tab:(DATA[active]&&DATA[active].id)||""};
+  presence=Object.assign({},presence,{[devId]:entry});   // show ourselves at once
+  window.__fb.presenceWrite(S.tripCode,devId,entry).catch(()=>{});
+}
+function startBeat(){ stopBeat(); beat(true); beatTmr=setInterval(()=>beat(),BEAT_MS); }
+function stopBeat(){ if(beatTmr){ clearInterval(beatTmr); beatTmr=null; } }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") beat(true); });
+
 let lastPushedJSON=null;
+/* When the server last accepted something from us, so the status line can say
+   how long ago rather than claiming "just now" forever. */
+let lastSyncAt=0, syncPending=false, statusTmr=null;
+function markSynced(){ lastSyncAt=Date.now(); syncPending=false; }
+function agoText(ms){
+  const s=Math.round(ms/1000);
+  if(s<10) return "just now";
+  if(s<60) return s+"s ago";
+  const m=Math.round(s/60);
+  if(m<60) return m+" min ago";
+  const h=Math.round(m/60);
+  return h+"h ago";
+}
+/* Derived from what actually happened, not a string set once and left to rot. */
+function syncLine(){
+  if(!S.tripCode) return "";
+  if(fbStatus && /error|Couldn't|isn't configured|needs live sync|Copy/.test(fbStatus)) return fbStatus;
+  if(!navigator.onLine) return syncPending?"Offline — changes saved here, will sync later":"Offline — changes saved on this device";
+  if(syncPending) return "Saving…";
+  if(!lastSyncAt) return "Connecting…";
+  return "Synced "+agoText(Date.now()-lastSyncAt);
+}
+/* Repaint just the status text. A full render here would fight with typing and
+   is far too heavy for a line that ticks every few seconds. */
+function paintStatus(){
+  paintChip();
+  const el=document.getElementById("syncLine");
+  if(el){ el.textContent=syncLine(); el.style.color=syncIsWarning()?"var(--alert)":"var(--done)"; }
+  const who=document.getElementById("crewHere");
+  if(who) who.innerHTML=presenceHTML();
+  const shop=document.getElementById("shopHere");
+  if(shop){ const t=shoppersLine(); shop.textContent=t; shop.style.display=t?"":"none"; }
+}
+/* The chip is the always-on signal; the share panel keeps the fuller wording. */
+function paintChip(){
+  const chip=document.getElementById("syncChip"), txt=document.getElementById("syncChipText");
+  document.body.classList.toggle("is-shared", !!S.tripCode);
+  if(!chip || !txt || !S.tripCode) return;
+  const others=othersHere().length;
+  let cls="", label;
+  if(fbStatus && /error|Couldn't/.test(fbStatus)){ cls="bad"; label="Sync problem — tap Trip for details"; }
+  else if(!navigator.onLine){ cls="warn"; label=syncPending?"Offline — changes waiting":"Offline — saved on this device"; }
+  else if(syncPending){ cls="busy"; label="Saving…"; }
+  else if(!lastSyncAt){ cls="busy"; label="Connecting…"; }
+  else label="Synced "+agoText(Date.now()-lastSyncAt)+(others?" · "+others+" other"+(others>1?"s":"")+" here":"");
+  chip.className="syncchip"+(cls?" "+cls:"");
+  txt.textContent=label;
+}
+function startStatusTick(){ stopStatusTick(); statusTmr=setInterval(paintStatus,5000); }
+function stopStatusTick(){ if(statusTmr){ clearInterval(statusTmr); statusTmr=null; } }
+function presenceHTML(){
+  if(!S.tripCode) return "";
+  const others=othersHere();
+  if(!others.length) return `<span style="color:var(--ink-2)">No one else connected yet — send them the link or the code.</span>`;
+  const names=others.map(p=>esc(p.name));
+  const list=names.length<=3?names.join(", "):names.slice(0,2).join(", ")+" and "+(names.length-2)+" more";
+  return `<span style="color:var(--done)">●</span> ${list} ${others.length===1?"is":"are"} on this trip`;
+}
+/* Two people in the same shop is exactly when a double-buy happens, so say so. */
+function shoppersLine(){
+  if(!S.tripCode) return "";
+  const shop=othersHere().filter(p=>p.tab==="provisions");
+  if(!shop.length) return "";
+  const names=shop.map(p=>p.name);
+  if(shop.length===1) return names[0]+" is shopping right now too";
+  return names.slice(0,2).join(", ")+(shop.length>2?" and others":"")+" are shopping right now too";
+}
+function syncIsWarning(){
+  if(fbStatus && /error|Couldn't/.test(fbStatus)) return true;
+  return !navigator.onLine;
+}
 /* What we last got onto the server, kept as a detached copy purely to work out
    what to send next. It never decides who wins a conflict, so if it is ever
    wrong the cost is a larger write, not a lost edit. */
@@ -1160,6 +1330,7 @@ async function fbPush(){
   lastPushedJSON=JSON.stringify(payload);
   if(Object.keys(upd).length) await window.__fb.push(S.tripCode, upd);
   lastSent=JSON.parse(JSON.stringify(payload));
+  markSynced();
 }
 
 async function load(){
@@ -1181,9 +1352,10 @@ function save(){
   if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
     pushTickChanges();
     clearTimeout(pushTmr);
+    syncPending=true; paintStatus();
     pushTmr=setTimeout(async()=>{
-      try{ await fbPush(); }
-      catch(e){ fbStatus="Sync error — check your connection."; }
+      try{ await fbPush(); paintStatus(); }
+      catch(e){ fbStatus="Sync error — check your connection."; paintStatus(); }
     },600);
   }
 }
@@ -1773,7 +1945,7 @@ function row(id,it,shop){
       ${split?`<button class="rec" data-split="${id}" type="button"
           aria-expanded="${expandedQty.has(id)}">${esc(q.t)}${ico("meals","split-ico")}</button>`
         :`<span class="rec ${q.free?"free":""} ${q.none?"none":""}">${esc(q.t)}</span>`}
-      <input class="own" data-own="${id}" value="${esc(S.own[id]||"")}" placeholder="yours" aria-label="Your amount">
+      <input class="own" data-own="${id}" value="${esc(S.own[id]||"")}" placeholder="yours" aria-label="Amount you are actually buying">
     </div>`;
     if(split&&expandedQty.has(id)){
       extra+=`<span class="split">
@@ -2123,19 +2295,33 @@ function renderTrip(){
     </section>`;
   }
 
+  if(pendingJoin){ bodyEl.innerHTML=joinPanelHTML(); return; }
   html+=`<div class="panel">
     <h2>Share with your crew</h2>
     ${!fbConfigured()
       ? `<p style="font-size:14px;color:var(--ink-2);margin:0">Not set up yet — needs a one-time Firebase project setup. Ask your assistant for the steps if you haven't done this.</p>`
       : S.tripCode
-        ? `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Trip code <b style="color:var(--ink);letter-spacing:.06em">${esc(S.tripCode)}</b> ·
-             <span style="color:${(fbStatus||"").indexOf("error")!==-1?"var(--alert)":"var(--done)"}">${esc(fbStatus||"Connecting…")}</span></p>
+        ? `<p style="font-size:14px;color:var(--ink-2);margin:0 0 6px">Trip code <b style="color:var(--ink);letter-spacing:.06em">${esc(S.tripCode)}</b> ·
+             <span id="syncLine" style="color:${syncIsWarning()?"var(--alert)":"var(--done)"}">${esc(syncLine())}</span></p>
+           <p id="crewHere" style="font-size:13.5px;margin:0 0 10px">${presenceHTML()}</p>
+           <label class="field" style="margin:0 0 10px">Your name on this device
+             <input id="devName" value="${esc(devName)}" placeholder="e.g. Ann" maxlength="24">
+             <span class="note" style="font-size:12.5px;color:var(--ink-2)">Shown to the crew when you tick something off.</span></label>
            <div style="display:flex;gap:8px;flex-wrap:wrap">
              <button class="btn" id="fbCopyBtn" type="button">Copy invite link</button>
              <button class="btn quiet" id="fbStopBtn" type="button" style="color:var(--alert)">Stop live sync</button>
            </div>`
         : `<p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Turns this trip into a shared document — everyone with the invite link sees crew, meal plan, recipes and the shopping list — including what's already in the basket — update live. Your ticks on the personal lists and your Spoonacular key stay private to this device.</p>
-           <button class="btn" id="fbStartBtn" type="button">Start live sync</button>`}
+           <button class="btn" id="fbStartBtn" type="button">Start live sync</button>
+           <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+             <p style="font-size:14px;color:var(--ink-2);margin:0 0 8px">Already have a code from your crew?</p>
+             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+               <input id="joinCode" placeholder="e.g. 9LWH83" maxlength="6" autocapitalize="characters" autocomplete="off"
+                 style="flex:1 1 140px;min-width:0;text-transform:uppercase;letter-spacing:.08em">
+               <button class="btn quiet" id="fbJoinBtn" type="button">Join trip</button>
+             </div>
+             <p id="joinMsg" style="font-size:13px;color:var(--alert);margin:8px 0 0"></p>
+           </div>`}
   </div>`;
   bodyEl.innerHTML=html;
 }
@@ -2260,10 +2446,12 @@ function pushTickChanges(){
   const dels=Object.keys(lastShopTicks).filter(k=>!now[k]);
   if(!adds.length && !dels.length) return;
   lastShopTicks=now;
+  syncPending=true; paintStatus();
   // Straight out, no debounce: a tick is finished the moment it is made, and the
   // crew member holding the basket should see it now, not in a second and a half.
   window.__fb.tickWrite(S.tripCode,adds,dels)
-    .catch(()=>{ fbStatus="Sync error — check your connection."; });
+    .then(()=>{ markSynced(); paintStatus(); })
+    .catch(()=>{ fbStatus="Sync error — check your connection."; paintStatus(); });
 }
 function applyTicks(map){
   const before=JSON.stringify(shopDone(S.done));
@@ -2300,15 +2488,20 @@ function subscribeFb(code){
     if(data){
       const incoming=JSON.stringify(shareSubset(data));
       const blobIsOurs=(incoming===lastPushedJSON); // our own write echoing back
+      // Presence rides in its own field; a heartbeat must not read as a crew edit.
+      const whoBefore=othersHere().map(p=>p.id+p.tab).sort().join(",");
+      presence=data.presence||{};
+      const whoChanged=othersHere().map(p=>p.id+p.tab).sort().join(",")!==whoBefore;
       syncingRemote=true;
       const tickChanged=applyTicks(data.doneShop||{});
       // Ticks are applied either way: the blob half often matches what we last
       // pushed, and returning early there would drop the crew's ticks entirely.
       if(!blobIsOurs) applyShare(data);
       syncingRemote=false;
-      if(blobIsOurs && !tickChanged) return;
+      markSynced();
+      if(blobIsOurs && !tickChanged && !whoChanged){ paintStatus(); return; }
       if(tickChanged) save();
-      fbStatus="Updated from another device.";
+      if(!blobIsOurs || tickChanged) fbStatus="";
       if(isTyping()){ pendingRender=true; flushPendingRender(); } else render();
     } else {
       fbStatus="Synced just now"; if(!isTyping()) renderTrip();
@@ -2320,11 +2513,81 @@ async function fbStart(){
   if(!have || !fbConfigured()){ fbStatus="Firebase isn't configured yet."; renderTrip(); return; }
   const code=genCode();
   fbStatus="Connecting…"; S.tripCode=code; renderTrip();
-  try{ await fbPush(); pushTickChanges(); fbStatus="Synced just now"; subscribeFb(code); renderTrip(); }
+  try{ await fbPush(); pushTickChanges(); fbStatus=""; subscribeFb(code); startBeat(); startStatusTick(); renderTrip(); }
   catch(e){ fbStatus="Couldn't start live sync — check your Firebase setup."; renderTrip(); }
 }
+/* A native confirm() reads as a browser security prompt, gives no idea what the
+   trip contains, and — because the hash was cleared either way — left a dismissed
+   invite link permanently dead. Ask inside the app instead, and keep the code
+   until the answer comes. */
+let pendingJoin=null;
+function clearInviteHash(){
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+}
+/* Tapping an invite while the app is already open only changes the hash — no
+   reload, so the startup check never runs and the link appears to do nothing. */
+window.addEventListener("hashchange",()=>{
+  const h=location.hash||"";
+  if(h.indexOf("#t=")!==0) return;
+  const code=h.slice(3).trim().toUpperCase();
+  if(!code || !fbConfigured() || code===S.tripCode) return;
+  active=0; offerJoin(code);
+});
+/* Clearing a shared shopping list wipes it for everyone, so when there is
+   actually someone else connected, say so before doing it. */
+function confirmClear(n){
+  const others=othersHere().length;
+  return window.confirm("Clear "+n+" tick"+(n>1?"s":"")+" for the whole crew? "+
+    others+" other device"+(others>1?"s are":" is")+" on this trip and will see the list empty.");
+}
+function offerJoin(code){
+  pendingJoin={code:code,boat:"",crew:0,days:0,loading:true};
+  render();
+  window.__fb.peek(code).then(d=>{
+    if(!pendingJoin || pendingJoin.code!==code) return;
+    pendingJoin=d
+      ? {code:code,boat:(d.trip&&d.trip.boat)||"",crew:(d.crew||[]).length||d.crewManual||0,
+         days:d.daysManual||0,loading:false,found:true}
+      : {code:code,loading:false,found:false};
+    render();
+  }).catch(()=>{
+    if(pendingJoin && pendingJoin.code===code){ pendingJoin={code:code,loading:false,found:false}; render(); }
+  });
+}
+function doJoin(j){
+  if(!j) return;
+  const code=j.code;
+  pendingJoin=null;
+  S.tripCode=code; fbStatus=""; lastSent=null; lastShopTicks={};
+  subscribeFb(code); startBeat(); startStatusTick();
+  clearInviteHash();
+  save(); render();
+}
+function joinPanelHTML(){
+  const j=pendingJoin;
+  if(!j) return "";
+  if(j.loading) return `<div class="panel"><h2>Joining ${esc(j.code)}</h2>
+    <p style="font-size:14px;color:var(--ink-2);margin:0">Looking for that trip…</p></div>`;
+  if(!j.found) return `<div class="panel"><h2>No trip with that code</h2>
+    <p style="font-size:14px;color:var(--ink-2);margin:0 0 10px">Check the code with whoever sent it — it may have been stopped.</p>
+    <button class="btn quiet" id="joinNo" type="button">Back</button></div>`;
+  const what=[j.boat?esc(j.boat):"", j.crew?j.crew+" aboard":"", j.days?j.days+" days":""].filter(Boolean).join(" · ");
+  return `<div class="panel"><h2>Join this trip?</h2>
+    <p style="font-size:14px;color:var(--ink-2);margin:0 0 4px">Trip code <b style="color:var(--ink);letter-spacing:.06em">${esc(j.code)}</b></p>
+    ${what?`<p style="font-size:15px;color:var(--ink);margin:0 0 10px">${what}</p>`:""}
+    <p style="font-size:14px;color:var(--ink-2);margin:0 0 12px">Your crew list, meal plan and shopping list will be replaced by this trip's.
+      Ticks on your personal lists stay as they are.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="joinYes" type="button">Join trip</button>
+      <button class="btn quiet" id="joinNo" type="button">Not now</button>
+    </div></div>`;
+}
 function fbStop(){
-  if(window.__fb) window.__fb.unsubscribe();
+  if(window.__fb){
+    if(S.tripCode) window.__fb.presenceClear(S.tripCode,devId).catch(()=>{});
+    window.__fb.unsubscribe();
+  }
+  stopBeat(); stopStatusTick(); presence={}; lastSyncAt=0; syncPending=false;
   S.tripCode=""; fbStatus=""; lastPushedJSON=null; lastShopTicks={}; lastSent=null; save(); render();
 }
 async function fbCopyLink(){
@@ -2594,6 +2857,8 @@ function renderList(){
         <button data-n="daysManual" data-d="-1" ${S.trip.start&&S.trip.end?"disabled":""}>−</button><b>${d}</b>
         <button data-n="daysManual" data-d="1" ${S.trip.start&&S.trip.end?"disabled":""}>+</button></div>
       <p>${profileSummary().join(" · ")||"Assuming an average mixed crew."} · Rough expectation: €${nf(lo)}–${nf(hi)}.${me.count?` Plus ingredients for ${me.count} planned meal${me.count>1?"s":""} below.`:""}</p>
+      <p style="flex:1 1 100%;margin:0;font-size:13px;color:var(--ink-2)">The suggested amount is on the left of each row; the box on the right is for what you actually decided to buy.</p>
+      <p id="shopHere" style="flex:1 1 100%;margin:0;font-size:13.5px;color:var(--brass);display:${shoppersLine()?"":"none"}">${esc(shoppersLine())}</p>
       <div style="flex:1 1 100%;display:flex;justify-content:flex-end;gap:8px">
         <button class="btn ${hideTicked?"":"quiet"}" id="shopToggle" type="button" style="padding:9px 15px;font-size:14px">
           ${ico("cart")} ${hideTicked?`Showing ${done} to buy`:"Shopping mode"}</button>
@@ -2724,6 +2989,7 @@ function goTo(id){
   active=idxOf(id); searchEl.value=""; query=""; editMode=false; hideTicked=false; expandedQty.clear();
   searchEl.style.display=isForm(active)?"none":"";
   render(); window.scrollTo({top:0});
+  beat(true);   // so the crew can see who has walked into the shop
 }
 tabsEl.addEventListener("click",e=>{
   const b=e.target.closest("button[data-nav]"); if(!b) return;
@@ -2935,6 +3201,19 @@ bodyEl.addEventListener("click",e=>{
     render(); return;
   }
   if(btn.id==="editToggle"){ editMode=!editMode; if(editMode) hideTicked=false; render(); return; }
+  if(btn.id==="fbJoinBtn"){
+    const inp=$("joinCode"), msg=$("joinMsg");
+    const code=(inp?inp.value:"").trim().toUpperCase();
+    if(!/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/.test(code)){
+      if(msg) msg.textContent="That doesn't look like a trip code — six letters and numbers.";
+      return;
+    }
+    if(msg) msg.textContent="";
+    offerJoin(code);
+    return;
+  }
+  if(btn.id==="joinYes"){ doJoin(pendingJoin); return; }
+  if(btn.id==="joinNo"){ pendingJoin=null; clearInviteHash(); render(); return; }
   if(btn.id==="shopToggle"){ hideTicked=!hideTicked; if(hideTicked) editMode=false; render(); window.scrollTo({top:0}); return; }
   if(btn.id==="expAdd"){ addExpense(); return; }
   if(btn.id==="logShop"){
@@ -2989,17 +3268,24 @@ resetEl.addEventListener("click",()=>{
   const n=listIds(active).filter(i=>S.done[i]).length;
   if(!n) return;
   pushUndo(`Cleared ${n} tick${n>1?"s":""} in ${l.title}`);
+  // On a shared list this empties the boat's list, not just this screen's.
+  if(S.tripCode && DATA[active].type==="shop" && othersHere().length){
+    if(!confirmClear(n)) return;
+  }
   listIds(active).forEach(i=>delete S.done[i]); save(); render();
 });
 $("undoBtn").addEventListener("click",doUndo);
+bodyEl.addEventListener("change",e=>{
+  if(e.target && e.target.id==="devName"){ setDevName(e.target.value); paintStatus(); }
+});
 searchEl.addEventListener("input",e=>{ query=e.target.value; render(); });
 
 /* ---- offline support ---- */
 function markOnline(){ document.body.classList.toggle("is-offline", !navigator.onLine); }
-window.addEventListener("online", ()=>{ markOnline();
+window.addEventListener("online", ()=>{ markOnline(); paintStatus();
   if(S.tripCode && window.__fb && window.__fb.configured){ fbPush().catch(()=>{}); }
 });
-window.addEventListener("offline", markOnline);
+window.addEventListener("offline", ()=>{ markOnline(); paintStatus(); });
 markOnline();
 
 if("serviceWorker" in navigator){
@@ -3024,21 +3310,25 @@ if("serviceWorker" in navigator){
 }
 
 (async()=>{
+  loadDevice();
   await load();
+  startStatusTick();   // the header chip ticks for the whole session
   const h=location.hash||"";
   if(h.indexOf("#t=")===0){
     const code=h.slice(3).trim().toUpperCase();
     const have=await waitForFb();
     if(have && fbConfigured() && code){
-      const ok=confirm("Join live sync for trip "+code+"? This links this device to that shared trip and replaces what's here now.");
-      if(ok){ S.tripCode=code; fbStatus="Connecting…"; subscribeFb(code); }
+      active=0;            // the question lives on the trip tab
+      // The code stays in the address bar until the question is answered, so a
+      // reload — or a mistap — re-offers the invite instead of killing the link.
+      offerJoin(code);
     } else {
       fbStatus="That invite link needs live sync set up first.";
+      clearInviteHash();
     }
-    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
   } else if(S.tripCode){
     const have=await waitForFb();
-    if(have && fbConfigured()){ fbStatus="Connecting…"; subscribeFb(S.tripCode); }
+    if(have && fbConfigured()){ fbStatus=""; subscribeFb(S.tripCode); startBeat(); startStatusTick(); }
   }
   searchEl.style.display=isForm(active)?"none":"";
   render();
