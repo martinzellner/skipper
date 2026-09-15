@@ -1169,7 +1169,7 @@ async function load(){
     S.seeded=true;
   }
 }
-let tmr, pushTmr, pendingPush=false;
+let tmr, pushTmr;
 function save(){
   clearTimeout(tmr);
   tmr=setTimeout(async()=>{
@@ -1180,11 +1180,10 @@ function save(){
   // longer the point and the pause can be short.
   if(S.tripCode && window.__fb && window.__fb.configured && !syncingRemote){
     pushTickChanges();
-    pendingPush=true;
     clearTimeout(pushTmr);
     pushTmr=setTimeout(async()=>{
-      try{ await fbPush(); pendingPush=false; }
-      catch(e){ pendingPush=false; fbStatus="Sync error — check your connection."; }
+      try{ await fbPush(); }
+      catch(e){ fbStatus="Sync error — check your connection."; }
     },600);
   }
 }
@@ -2246,7 +2245,10 @@ const SHARE_FIELDS=["trip","crew","meals","customRecipes","own","custom","crewMa
    Ticks on the personal lists (packing, safety, handover…) stay on this device, so
    only the three id prefixes the shop tab uses travel. */
 const SHOP_TICK=/^(provisions\.|custom\.|mealx\.)/;
-function shopDone(done){ const p={}; Object.keys(done||{}).forEach(k=>{ if(SHOP_TICK.test(k)) p[k]=done[k]; }); return p; }
+/* Normalised to 1: a tick made here is set to 1, but one read back from Firestore
+   arrives as true. Everything treats them as truthy, so both work — they just
+   shouldn't be allowed to drift apart. */
+function shopDone(done){ const p={}; Object.keys(done||{}).forEach(k=>{ if(SHOP_TICK.test(k)&&done[k]) p[k]=1; }); return p; }
 function pickShare(){ const p={}; SHARE_FIELDS.forEach(k=>{ if(S[k]!==undefined) p[k]=S[k]; }); return p; }
 /* What we last saw on the server, so a tick or untick can be sent as just that
    one field instead of the whole shopping list. */
@@ -2271,8 +2273,19 @@ function applyTicks(map){
   return before!==JSON.stringify(lastShopTicks);
 }
 function applyShare(payload){
-  SHARE_FIELDS.forEach(k=>{ if(payload[k]!==undefined) S[k]=payload[k]; });
-  lastSent=JSON.parse(JSON.stringify(pickShare()));
+  // A field we have changed but not sent yet stays ours until it goes out; every
+  // other field takes the server's value. Nothing is discarded — a snapshot that
+  // arrived at an awkward moment used to be dropped, and Firestore never sends it
+  // again, so the change stayed invisible until the page was reloaded.
+  const mineNow=pickShare();
+  const unsent=k=>!!lastSent && JSON.stringify(mineNow[k])!==JSON.stringify(lastSent[k]);
+  const next=lastSent?Object.assign({},lastSent):{};
+  SHARE_FIELDS.forEach(k=>{
+    if(payload[k]===undefined || unsent(k)) return;   // a skipped field's lastSent
+    S[k]=payload[k];                                  // must stay where it was:
+    next[k]=JSON.parse(JSON.stringify(payload[k]));   // advancing it would make the
+  });                                                 // parts we never touched look
+  lastSent=next;                                      // edited, and push them back.
   save();
 }
 
@@ -2291,12 +2304,12 @@ function subscribeFb(code){
       const tickChanged=applyTicks(data.doneShop||{});
       // Ticks are applied either way: the blob half often matches what we last
       // pushed, and returning early there would drop the crew's ticks entirely.
-      if(!blobIsOurs && !pendingPush) applyShare(data);
+      if(!blobIsOurs) applyShare(data);
       syncingRemote=false;
       if(blobIsOurs && !tickChanged) return;
       if(tickChanged) save();
       fbStatus="Updated from another device.";
-      if(isTyping()) pendingRender=true; else render();
+      if(isTyping()){ pendingRender=true; flushPendingRender(); } else render();
     } else {
       fbStatus="Synced just now"; if(!isTyping()) renderTrip();
     }
@@ -2678,6 +2691,19 @@ function isTyping(){
   return !!(el && bodyEl.contains(el) && /^(input|textarea|select)$/i.test(el.tagName));
 }
 let pendingRender=false;
+/* A redraw held back during typing used to wait for focusout, so if the field was
+   never left the screen simply stayed stale. Retry on idle instead — withFocus()
+   puts the caret back, so redrawing under a focused field is safe. */
+let lastKeyAt=0, prTmr=null;
+document.addEventListener("input",()=>{ lastKeyAt=Date.now(); },true);
+function flushPendingRender(){
+  clearTimeout(prTmr);
+  prTmr=setTimeout(()=>{
+    if(!pendingRender) return;
+    if(Date.now()-lastKeyAt<800){ flushPendingRender(); return; }  // still mid-edit
+    pendingRender=false; render();
+  },400);
+}
 function render(){
   withFocus(()=>{
     renderTabs(); renderHead();
@@ -2760,11 +2786,11 @@ bodyEl.addEventListener("change",e=>{
     return;
   }
   const dt=e.target.closest("input[data-t]");
-  if(dt&&(dt.dataset.t==="start"||dt.dataset.t==="end")){ S.trip[dt.dataset.t]=dt.value; save(); if(!isTyping()) render(); else pendingRender=true; }
+  if(dt&&(dt.dataset.t==="start"||dt.dataset.t==="end")){ S.trip[dt.dataset.t]=dt.value; save(); if(!isTyping()) render(); else { pendingRender=true; flushPendingRender(); } }
   const cs=e.target.closest("select[data-t='country']");
   if(cs){ S.trip.country=cs.value; save(); render(); }
   const ar=e.target.closest("input[data-f='arrival']");
-  if(ar){ const m=S.crew.find(x=>x.id===ar.dataset.id); if(m){ m.arrival=ar.value; save(); if(!isTyping()) render(); else pendingRender=true; } }
+  if(ar){ const m=S.crew.find(x=>x.id===ar.dataset.id); if(m){ m.arrival=ar.value; save(); if(!isTyping()) render(); else { pendingRender=true; flushPendingRender(); } } }
 });
 bodyEl.addEventListener("input",e=>{
   const t=e.target;
